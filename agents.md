@@ -42,6 +42,7 @@ set up @convex-dev/better-auth for a single seeded Admin login (no signup form).
 
 **Phase 3 — 45 min — Admin UI**
 Login screen, employee list + create/edit/deactivate, attendance list with employee/date-range/status filters (reactive — no manual refresh).
+*Note: `.demo-*` classes are scaffold leftovers, safe to rename to real names (card/table/button/etc) in a later cleanup pass, not a functional issue.*
 
 **Phase 4 — 30 min — corrections + unmatched review**
 Manual correction UI on `attendanceRecords` (via `attendance.recordEvent`, `source="ADMIN"`), unmatched-events queue with a manual link-to-employee action.

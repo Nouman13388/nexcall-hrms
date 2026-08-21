@@ -3,7 +3,8 @@ import { createClient } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins' 
 import authConfig from './auth.config' 
 import { components } from './_generated/api' 
-import { query } from './_generated/server' 
+import { query, mutation } from './_generated/server' 
+import { v } from 'convex/values'
 import type { GenericCtx } from '@convex-dev/better-auth' 
 import type { DataModel } from './_generated/dataModel' 
 
@@ -25,4 +26,23 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 export const getCurrentUser = query({ 
   args: {}, 
   handler: async (ctx) => { return await authComponent.getAuthUser(ctx) }, 
+})
+
+export const seedAdmin = mutation({
+  args: {
+    email: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
+    await auth.api.signUpEmail({
+      body: {
+        email: args.email,
+        password: args.password,
+        name: "Admin",
+      },
+      headers,
+    });
+    return "Admin seeded successfully";
+  },
 })
