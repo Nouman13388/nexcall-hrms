@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { authClient } from '../lib/auth-client'
 
@@ -11,8 +11,6 @@ function LoginScreen() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const navigate = useNavigate()
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -27,57 +25,56 @@ function LoginScreen() {
       setError(signInError.message || 'Login failed')
       setIsLoading(false)
     } else {
-      // Refresh to ensure server-side token state catches up, then redirect
       window.location.href = '/'
     }
   }
 
   return (
-    <div className="demo-center">
-      <div className="demo-panel" style={{ maxWidth: '400px', width: '100%' }}>
-        <h1 className="demo-title" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>Admin Login</h1>
+    <main className="auth-page">
+      <section className="auth-card" aria-labelledby="login-title">
+        <p className="eyebrow">Nexcall HRMS</p>
+        <h1 id="login-title">Admin login</h1>
+        <p className="intro">Sign in to manage employees and attendance.</p>
         
         {error && (
-          <div className="demo-alert demo-alert-danger" style={{ marginBottom: '1.5rem' }}>
+          <div className="error-message" role="alert">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label className="demo-section-title" style={{ display: 'block', marginBottom: '0.5rem' }}>Email Address</label>
+        <form onSubmit={handleLogin}>
+          <label>
+            Email address
             <input 
               type="email" 
-              className="demo-input" 
               value={email}
               onChange={e => setEmail(e.target.value)}
               required 
               autoFocus
+              autoComplete="email"
               placeholder="admin@example.com"
             />
-          </div>
+          </label>
           
-          <div>
-            <label className="demo-section-title" style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
+          <label>
+            Password
             <input 
               type="password" 
-              className="demo-input" 
               value={password}
               onChange={e => setPassword(e.target.value)}
               required 
+              autoComplete="current-password"
             />
-          </div>
+          </label>
           
           <button 
             type="submit" 
-            className="demo-button" 
-            style={{ marginTop: '0.5rem' }}
             disabled={isLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

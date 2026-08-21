@@ -1,24 +1,17 @@
 import {
   HeadContent,
+  Outlet,
   Scripts,
   createRootRouteWithContext,
   useRouteContext,
-  Outlet
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react'
+import type { AuthClient } from '@convex-dev/better-auth/react'
 import type { ConvexQueryClient } from '@convex-dev/react-query'
 import { authClient } from '../lib/auth-client'
 import { getToken } from '../lib/auth-server'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
-import Footer from '../components/Footer'
-import Header from '../components/Header'
-
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
-
 import appCss from '../styles.css?url'
-
 import type { QueryClient } from '@tanstack/react-query'
 
 interface MyRouterContext {
@@ -29,8 +22,6 @@ interface MyRouterContext {
 const getAuth = createServerFn({ method: 'GET' }).handler(async () => {
   return await getToken()
 })
-
-const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);if(mode==='auto'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',mode)}root.style.colorScheme=resolved;}catch(e){}})();`
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   head: () => ({
@@ -43,7 +34,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'TanStack Start Starter',
+        title: 'Nexcall HRMS',
       },
     ],
     links: [
@@ -64,6 +55,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
     }
   },
   component: RootComponent,
+  shellComponent: RootDocument,
 })
 
 function RootComponent() {
@@ -71,39 +63,23 @@ function RootComponent() {
   return (
     <ConvexBetterAuthProvider
       client={context.convexQueryClient.convexClient}
-      authClient={authClient}
+      // Upstream type regression: get-convex/better-auth#420.
+      authClient={authClient as unknown as AuthClient}
       initialToken={context.token}
     >
-      <RootDocument>
-        <Outlet />
-      </RootDocument>
+      <Outlet />
     </ConvexBetterAuthProvider>
   )
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
-        <Header />
+      <body>
         {children}
-        <Footer />
-        <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-            TanStackQueryDevtools,
-          ]}
-        />
         <Scripts />
       </body>
     </html>

@@ -1,5 +1,8 @@
 import { httpAction } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
 
 const verifySlackSignature = async (request: Request) => {
   const clonedReq = request.clone();
@@ -24,33 +27,34 @@ const verifySlackSignature = async (request: Request) => {
     ["sign"]
   );
   
-  const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(sigBaseString));
-  const hexMac = Array.from(new Uint8Array(mac))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  const expectedSig = `v0=${hexMac}`;
-
-  // Timing safe equal in crypto API is not natively available in browser Web Crypto without subtle,
-  // but a string compare is mostly sufficient for this phase or we can use timingSafeEqual if in Node.
-  // In Convex (V8 isolate), we just do a string comparison.
-  return expectedSig === signature;
+  if (!signature.startsWith("v0=")) return false;
+  const supplied = signature.slice(3);
+  if (!/^[0-9a-f]{64}$/i.test(supplied)) return false;
+  const bytes = new Uint8Array(
+    supplied.match(/.{2}/g)!.map((byte) => Number.parseInt(byte, 16)),
+  );
+  return crypto.subtle.verify("HMAC", key, bytes, encoder.encode(sigBaseString));
 };
 
-// Handle Slack URL verification and other events
-export const events = httpAction(async (ctx, request) => {
+export const events = httpAction(async (_ctx, request) => {
   const isValid = await verifySlackSignature(request);
   if (!isValid) return new Response("Unauthorized", { status: 401 });
 
-  const body = await request.json();
+  const body: unknown = await request.json();
+  if (!isRecord(body) || typeof body.type !== "string") {
+    return new Response("Bad Request", { status: 400 });
+  }
 
   if (body.type === "url_verification") {
+    if (typeof body.challenge !== "string") {
+      return new Response("Bad Request", { status: 400 });
+    }
     return new Response(body.challenge, { status: 200 });
   }
 
-  if (body.type === "event_callback") {
+  if (body.type === "event_callback" && isRecord(body.event)) {
     const event = body.event;
-    if (event.type === "app_home_opened") {
-      // Publish the App Home view
+    if (event.type === "app_home_opened" && typeof event.user === "string") {
       await publishAppHome(event.user);
     }
   }
@@ -101,7 +105,6 @@ async function publishAppHome(slackUserId: string) {
   });
 }
 
-// Handle Interactions (Button clicks)
 export const interactions = httpAction(async (ctx, request) => {
   const isValid = await verifySlackSignature(request);
   if (!isValid) return new Response("Unauthorized", { status: 401 });
@@ -111,26 +114,35 @@ export const interactions = httpAction(async (ctx, request) => {
   const payloadStr = params.get("payload");
   if (!payloadStr) return new Response("Bad Request", { status: 400 });
 
-  const payload = JSON.parse(payloadStr);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(payloadStr);
+  } catch {
+    return new Response("Bad Request", { status: 400 });
+  }
 
-  if (payload.type === "block_actions") {
-    const action = payload.actions[0];
-    const slackUserId = payload.user.id;
-    const eventType = action.value; // "CHECK_IN" or "CHECK_OUT"
+  if (isRecord(payload) && payload.type === "block_actions") {
+    const action = Array.isArray(payload.actions) ? payload.actions[0] : null;
+    const user = payload.user;
+    if (!isRecord(action) || !isRecord(user) || typeof user.id !== "string") {
+      return new Response("Bad Request", { status: 400 });
+    }
+    const slackUserId = user.id;
+    const eventType = action.value;
+    if (eventType !== "CHECK_IN" && eventType !== "CHECK_OUT") {
+      return new Response("Unsupported action", { status: 400 });
+    }
 
-    // Employee resolution flow
-    // 1. Match by slackUserId
     let employeeId = null;
-    let employee = await ctx.runQuery(api.employees.getBySlackId, { slackUserId });
+    let employee = await ctx.runQuery(internal.employees.getBySlackId, { slackUserId });
+    let slackEmail: string | undefined;
 
     if (!employee) {
-      // 2. Fetch email from Slack and match by email
-      const email = await getSlackUserEmail(slackUserId);
-      if (email) {
-        employee = await ctx.runQuery(api.employees.getByEmail, { email });
+      slackEmail = await getSlackUserEmail(slackUserId);
+      if (slackEmail) {
+        employee = await ctx.runQuery(internal.employees.getByEmail, { email: slackEmail });
         if (employee) {
-          // Cache slackUserId
-          await ctx.runMutation(api.employees.updateSlackId, { id: employee._id, slackUserId });
+          await ctx.runMutation(internal.employees.updateSlackId, { id: employee._id, slackUserId });
           employeeId = employee._id;
         }
       }
@@ -139,12 +151,11 @@ export const interactions = httpAction(async (ctx, request) => {
     }
 
     const rawSlackUserId = slackUserId;
-    const rawSlackEmail = employee ? employee.email : (await getSlackUserEmail(slackUserId));
+    const rawSlackEmail = employee?.email ?? slackEmail;
 
-    // Record the event
-    await ctx.runMutation(api.attendance.recordEvent, {
+    await ctx.runMutation(internal.attendance.recordEvent, {
       employeeId: employeeId ?? undefined,
-      eventType: eventType as "CHECK_IN" | "CHECK_OUT",
+      eventType,
       source: "SLACK",
       occurredAt: Date.now(),
       rawSlackUserId,
@@ -152,7 +163,6 @@ export const interactions = httpAction(async (ctx, request) => {
     });
 
     if (!employeeId) {
-      // 3. No match at all
       await sendEphemeralMessage(slackUserId, "User not recognized. Please contact HR.");
     } else {
       await sendEphemeralMessage(slackUserId, `Successfully recorded ${eventType.replace("_", " ")}`);
@@ -169,15 +179,19 @@ async function getSlackUserEmail(slackUserId: string): Promise<string | undefine
   const res = await fetch(`https://slack.com/api/users.info?user=${slackUserId}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  const data = await res.json();
-  return data?.user?.profile?.email;
+  if (!res.ok) return undefined;
+  const data: unknown = await res.json();
+  if (!isRecord(data) || !isRecord(data.user) || !isRecord(data.user.profile)) {
+    return undefined;
+  }
+  return typeof data.user.profile.email === "string"
+    ? data.user.profile.email
+    : undefined;
 }
 
 async function sendEphemeralMessage(slackUserId: string, text: string) {
   const token = process.env.SLACK_BOT_TOKEN;
   if (!token) return;
-  // To send an ephemeral message, we typically need a channel ID.
-  // In App Home, we can send a DM.
   await fetch("https://slack.com/api/chat.postMessage", {
     method: "POST",
     headers: {

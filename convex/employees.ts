@@ -1,5 +1,14 @@
-import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values'
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from './_generated/server'
+import { requireAdmin } from './auth'
+import schema from './schema'
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
 export const create = mutation({
   args: {
@@ -8,78 +17,87 @@ export const create = mutation({
     department: v.optional(v.string()),
     designation: v.optional(v.string()),
   },
+  returns: v.id('employees'),
   handler: async (ctx, args) => {
-    // Enforce email uniqueness
+    await requireAdmin(ctx)
+    const email = normalizeEmail(args.email)
     const existing = await ctx.db
-      .query("employees")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
-      
-    if (existing) {
-      throw new Error(`Employee with email ${args.email} already exists.`);
-    }
+      .query('employees')
+      .withIndex('by_email', (q) => q.eq('email', email))
+      .unique()
 
-    return await ctx.db.insert("employees", {
-      fullName: args.fullName,
-      email: args.email,
-      department: args.department,
-      designation: args.designation,
-      employmentStatus: "active",
-    });
+    if (existing) throw new Error(`Employee with email ${email} already exists`)
+
+    return ctx.db.insert('employees', {
+      ...args,
+      fullName: args.fullName.trim(),
+      email,
+      employmentStatus: 'active',
+    })
   },
-});
+})
 
 export const list = query({
   args: {},
+  returns: v.array(schema.doc('employees')),
   handler: async (ctx) => {
-    return await ctx.db.query("employees").collect();
+    await requireAdmin(ctx)
+    return ctx.db.query('employees').order('asc').take(500)
   },
-});
+})
 
 export const update = mutation({
   args: {
-    id: v.id("employees"),
+    id: v.id('employees'),
     fullName: v.optional(v.string()),
     department: v.optional(v.string()),
     designation: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const { id, ...updates } = args;
-    await ctx.db.patch(id, updates);
+  returns: v.null(),
+  handler: async (ctx, { id, ...updates }) => {
+    await requireAdmin(ctx)
+    if (!(await ctx.db.get('employees', id))) throw new Error('Employee not found')
+    await ctx.db.patch('employees', id, updates)
+    return null
   },
-});
+})
 
 export const deactivate = mutation({
-  args: { id: v.id("employees") },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { employmentStatus: "inactive" });
+  args: { id: v.id('employees') },
+  returns: v.null(),
+  handler: async (ctx, { id }) => {
+    await requireAdmin(ctx)
+    if (!(await ctx.db.get('employees', id))) throw new Error('Employee not found')
+    await ctx.db.patch('employees', id, { employmentStatus: 'inactive' })
+    return null
   },
-});
+})
 
-export const getBySlackId = query({
+export const getBySlackId = internalQuery({
   args: { slackUserId: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("employees")
-      .withIndex("by_slackUserId", (q) => q.eq("slackUserId", args.slackUserId))
-      .first();
-  }
-});
+  returns: v.union(schema.doc('employees'), v.null()),
+  handler: (ctx, { slackUserId }) =>
+    ctx.db
+      .query('employees')
+      .withIndex('by_slackUserId', (q) => q.eq('slackUserId', slackUserId))
+      .unique(),
+})
 
-export const getByEmail = query({
+export const getByEmail = internalQuery({
   args: { email: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("employees")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
-  }
-});
+  returns: v.union(schema.doc('employees'), v.null()),
+  handler: (ctx, { email }) =>
+    ctx.db
+      .query('employees')
+      .withIndex('by_email', (q) => q.eq('email', normalizeEmail(email)))
+      .unique(),
+})
 
-export const updateSlackId = mutation({
-  args: { id: v.id("employees"), slackUserId: v.string() },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { slackUserId: args.slackUserId });
-  }
-});
-
+export const updateSlackId = internalMutation({
+  args: { id: v.id('employees'), slackUserId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { id, slackUserId }) => {
+    await ctx.db.patch('employees', id, { slackUserId })
+    return null
+  },
+})
