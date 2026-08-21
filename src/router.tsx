@@ -10,7 +10,6 @@ import { routerWithQueryClient } from '@tanstack/react-router-with-query'
 import TanstackQueryProvider, {
   getContext,
 } from './integrations/tanstack-query/root-provider'
-import { ConvexProvider, ConvexReactClient } from 'convex/react'
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL as string
 if (!convexUrl) throw new Error('VITE_CONVEX_URL is not set')
