@@ -37,5 +37,11 @@ export default defineSchema({
       v.literal('COMPLETE'),
     ),
     correctedByAdmin: v.boolean(),
-  }).index('by_employee_date', ['employeeId', 'date']),
+  })
+    .index('by_employee_date', ['employeeId', 'date'])
+    // "All records for today" (dashboard snapshot) has no employeeId to
+    // start from, so by_employee_date can't serve it — without this,
+    // that's an unindexed scan-then-filter over every attendanceRecords
+    // row ever written instead of a bounded index lookup.
+    .index('by_date', ['date']),
 })

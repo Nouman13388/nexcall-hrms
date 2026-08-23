@@ -23,6 +23,26 @@ const buildAuth = (ctx: GenericCtx<DataModel>, disableSignUp: boolean) =>
       disableSignUp,
       requireEmailVerification: false,
     },
+    // Long-lived, low-overhead sessions — appropriate for a single-admin
+    // internal tool, not a multi-tenant public app. Shapes verified against
+    // the installed @better-auth/core types (init-options.d.mts), not
+    // assumed from memory.
+    session: {
+      // 30 days instead of Better Auth's 7-day default.
+      expiresIn: 60 * 60 * 24 * 30,
+      // Session expiry only gets extended once per day of activity, not on
+      // every request — matches Better Auth's own default (1 day), set
+      // explicitly so it's a documented choice, not an inherited default.
+      updateAge: 60 * 60 * 24,
+      // The actual efficiency win: most requests validate off a signed
+      // cookie instead of a DB round trip, only re-checking the real
+      // session once maxAge elapses. Tradeoff written up in
+      // docs/security.md.
+      cookieCache: {
+        enabled: true,
+        maxAge: 60 * 5,
+      },
+    },
     plugins: [convex({ authConfig })],
   })
 

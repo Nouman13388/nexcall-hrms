@@ -10,6 +10,7 @@
 
 import type * as attendance from "../attendance.js";
 import type * as auth from "../auth.js";
+import type * as dashboard from "../dashboard.js";
 import type * as employees from "../employees.js";
 import type * as http from "../http.js";
 import type * as slack from "../slack.js";
@@ -24,6 +25,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
   auth: typeof auth;
+  dashboard: typeof dashboard;
   employees: typeof employees;
   http: typeof http;
   slack: typeof slack;

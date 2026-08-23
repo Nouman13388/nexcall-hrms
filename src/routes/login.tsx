@@ -1,8 +1,13 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { authClient } from '../lib/auth-client'
 
 export const Route = createFileRoute('/login')({
+  beforeLoad: ({ context }) => {
+    if (context.isAuthenticated) {
+      throw redirect({ to: '/dashboard' })
+    }
+  },
   component: LoginScreen,
 })
 

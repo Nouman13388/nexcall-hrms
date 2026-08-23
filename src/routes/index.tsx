@@ -1,21 +1,11 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-export const Route = createFileRoute('/')({ component: App })
-
-function App() {
-  return (
-    <main className="auth-page">
-      <section className="auth-card">
-        <p className="eyebrow">Nexcall HRMS</p>
-        <h1>Attendance management</h1>
-        <p className="intro">
-          Slack attendance is connected. Sign in to the admin workspace to
-          manage employee and attendance records.
-        </p>
-        <Link className="primary-link" to="/login">
-          Continue to admin login
-        </Link>
-      </section>
-    </main>
-  )
-}
+// `/` never renders anything — same isAuthenticated check
+// /dashboard/route.tsx's guard uses, computed once in __root.tsx's
+// beforeLoad. No component: beforeLoad always throws a redirect, so there's
+// nothing left to render here.
+export const Route = createFileRoute('/')({
+  beforeLoad: ({ context }) => {
+    throw redirect({ to: context.isAuthenticated ? '/dashboard' : '/login' })
+  },
+})

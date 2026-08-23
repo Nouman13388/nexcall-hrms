@@ -98,8 +98,7 @@ input:focus {
   box-shadow: 0 0 0 3px rgba(79, 184, 178, 0.2);
 }
 
-button,
-.primary-link {
+button {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
@@ -113,8 +112,7 @@ button,
   cursor: pointer;
 }
 
-button:hover,
-.primary-link:hover {
+button:hover {
   background: #1d696c;
 }
 
@@ -151,19 +149,29 @@ button:disabled {
 
 .app-nav .brand {
   margin-right: auto;
+  color: inherit;
   font-weight: 800;
   letter-spacing: -0.02em;
+  text-decoration: none;
 }
 
 .app-nav a {
+  padding: 0.35rem 0.05rem;
+  border-bottom: 2px solid transparent;
   color: #4f696d;
   font-weight: 650;
   text-decoration: none;
 }
 
-.app-nav a:hover,
+.app-nav a:hover {
+  color: #173a40;
+}
+
+/* Active page: a persistent underline, not just the same color hover
+   already gives — hover alone isn't a reliable "you are here" signal. */
 .app-nav a.active {
   color: #173a40;
+  border-bottom-color: #247f82;
 }
 
 .app-main {
@@ -190,6 +198,40 @@ button:disabled {
   letter-spacing: -0.02em;
 }
 
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+a.stat-card:hover {
+  box-shadow: 0 1.5rem 3rem rgba(23, 58, 64, 0.14);
+  transform: translateY(-2px);
+}
+
+.stat-number {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.stat-label {
+  margin-top: 0.4rem;
+  color: #4f696d;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
 .section-header {
   display: flex;
   align-items: center;
@@ -200,6 +242,34 @@ button:disabled {
 
 .section-header h2 {
   margin: 0;
+}
+
+/* Only rendered on deep-linked arrivals (e.g. a dashboard snapshot card) —
+   not a generic back button on every page. */
+.breadcrumb {
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.breadcrumb a {
+  color: #328f97;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.sync-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.sync-status {
+  color: #4f696d;
+  font-size: 0.8rem;
 }
 
 .notice {
@@ -239,6 +309,14 @@ select:focus,
   box-shadow: 0 0 0 3px rgba(79, 184, 178, 0.2);
 }
 
+/* Three-tier button hierarchy, reused everywhere instead of styled per
+   page: primary (bare <button>, solid fill) > secondary/neutral
+   (.button-secondary, outline) > destructive (.button-danger, no fill at
+   all — deliberately the *lowest* visual weight of the three, so it never
+   competes with a primary action, plus placement separation in
+   .row-actions below). Weight and placement carry the distinction, not
+   just red-vs-teal. */
+
 .button-secondary {
   background: transparent;
   color: #247f82;
@@ -250,11 +328,14 @@ select:focus,
 }
 
 .button-danger {
-  background: #a13636;
+  background: transparent;
+  color: #a13636;
+  border: 1px solid transparent;
 }
 
 .button-danger:hover {
-  background: #872b2b;
+  background: rgba(161, 54, 54, 0.08);
+  border-color: rgba(161, 54, 54, 0.3);
 }
 
 .form-row {
@@ -312,6 +393,7 @@ select:focus,
 
 .table .row-actions {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
 }
 
@@ -319,6 +401,15 @@ select:focus,
   min-height: 2.1rem;
   padding: 0 0.75rem;
   font-size: 0.8rem;
+}
+
+/* Placement separation for the destructive action, on top of the weight
+   difference above — it's set apart from the neutral actions, not sitting
+   in the same tight group as if all row actions carried equal weight. */
+.table .row-actions .button-danger {
+  margin-left: 0.35rem;
+  padding-left: 0.85rem;
+  border-left: 1px solid rgba(23, 58, 64, 0.14);
 }
 
 .empty-state {

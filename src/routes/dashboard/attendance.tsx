@@ -1,17 +1,42 @@
 import { convexQuery } from '@convex-dev/react-query'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { api } from '../../../convex/_generated/api'
 import { DataTable } from '../../components/DataTable'
 import { StatusBadge } from '../../components/StatusBadge'
 import type { Id } from '../../../convex/_generated/dataModel'
 
+type StatusFilter = '' | 'PRESENT' | 'MISSING_CHECKOUT' | 'COMPLETE'
+
+const STATUS_VALUES: StatusFilter[] = [
+  'PRESENT',
+  'MISSING_CHECKOUT',
+  'COMPLETE',
+]
+
+interface AttendanceSearch {
+  status?: StatusFilter
+  startDate?: string
+  endDate?: string
+}
+
+// Lets the dashboard snapshot cards deep-link here pre-filtered (e.g.
+// "3 Missing checkout" -> today, status=MISSING_CHECKOUT already applied)
+// instead of landing on a blank page the admin has to filter by hand.
+// All fields optional so plain nav links to this route (no filters) don't
+// need a `search` prop at all — this stays additive to existing behavior.
 export const Route = createFileRoute('/dashboard/attendance')({
+  validateSearch: (search: Record<string, unknown>): AttendanceSearch => ({
+    status: STATUS_VALUES.includes(search.status as StatusFilter)
+      ? (search.status as StatusFilter)
+      : undefined,
+    startDate:
+      typeof search.startDate === 'string' ? search.startDate : undefined,
+    endDate: typeof search.endDate === 'string' ? search.endDate : undefined,
+  }),
   component: AttendancePage,
 })
-
-type StatusFilter = '' | 'PRESENT' | 'MISSING_CHECKOUT' | 'COMPLETE'
 
 function formatTime(ms?: number) {
   if (!ms) return '—'
@@ -22,10 +47,25 @@ function formatTime(ms?: number) {
 }
 
 function AttendancePage() {
+  const initialSearch = Route.useSearch()
+  // Snapshot of how this page was *entered*, independent of subsequent
+  // filter edits — this is what decides whether the breadcrumb shows, not
+  // the live filter state (a user filtering manually via the toolbar
+  // shouldn't suddenly grow a "back to dashboard" link that wasn't there
+  // when they arrived).
+  const [arrivedViaDeepLink] = useState(
+    () => Boolean(initialSearch.status) ||
+      Boolean(initialSearch.startDate) ||
+      Boolean(initialSearch.endDate),
+  )
+
   const [employeeId, setEmployeeId] = useState<Id<'employees'> | ''>('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [status, setStatus] = useState<StatusFilter>('')
+  const [startDate, setStartDate] = useState(initialSearch.startDate ?? '')
+  const [endDate, setEndDate] = useState(initialSearch.endDate ?? '')
+  const [status, setStatus] = useState<StatusFilter>(
+    initialSearch.status ?? '',
+  )
+  const hasActiveFilters = Boolean(employeeId || startDate || endDate || status)
 
   const { data: employees } = useQuery(convexQuery(api.employees.list, {}))
 
@@ -46,6 +86,11 @@ function AttendancePage() {
 
   return (
     <section className="card">
+      {arrivedViaDeepLink && (
+        <div className="breadcrumb">
+          <Link to="/dashboard">← Back to dashboard</Link>
+        </div>
+      )}
       <h2>Attendance</h2>
       <div className="toolbar">
         <label className="field">
@@ -100,7 +145,11 @@ function AttendancePage() {
         <DataTable
           rows={records}
           rowKey={(r) => r._id}
-          emptyMessage="No attendance records match these filters."
+          emptyMessage={
+            hasActiveFilters
+              ? 'No attendance records match these filters.'
+              : 'No attendance events yet — check-ins and check-outs from Slack will appear here.'
+          }
           columns={[
             {
               key: 'employee',

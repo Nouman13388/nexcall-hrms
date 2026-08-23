@@ -33,6 +33,43 @@ The Slack-only internal functions (`employees.getBySlackId`, `.getByEmail`,
 reachable from the client at all; only `convex/slack.ts`'s `httpAction`s can
 call them via `ctx.runQuery`/`ctx.runMutation(internal.*, …)`.
 
+## Session lifetime and cookie cache — the revocation-latency tradeoff
+
+`convex/auth.ts`'s `buildAuth` configures Better Auth's `session` options
+(shape verified against the installed `@better-auth/core` types, not
+assumed):
+
+```ts
+session: {
+  expiresIn: 60 * 60 * 24 * 30, // 30 days
+  updateAge: 60 * 60 * 24,      // refresh at most once/day of activity
+  cookieCache: { enabled: true, maxAge: 60 * 5 }, // 5 minutes
+}
+```
+
+`cookieCache` is the actual efficiency win: with it enabled, most session
+checks validate off a signed cookie instead of round-tripping to the
+database, and only fall back to a real DB check once `maxAge` (5 minutes)
+elapses.
+
+**The tradeoff, stated plainly, not hidden:** for up to `maxAge`, a session
+that was just revoked — an admin manually invalidated, deactivated, or
+otherwise cut off server-side — can still validate successfully off the
+stale cached cookie, because the check isn't hitting the database to notice
+the revocation. Worst case with the current config: **up to 5 minutes**
+where a revoked session still works.
+
+Why this is an acceptable tradeoff here, not just an overlooked one: this is
+a single-admin internal tool (one seeded account, no signup, no
+multi-tenant blast radius), served over HTTPS, with no current UI path to
+revoke a session at all — so the realistic exposure window today is
+theoretical. It would stop being acceptable the moment this app grows a
+second role, a "sign out other sessions" feature, or any scenario where an
+admin's access needs to be cut off *immediately* (e.g. an offboarding). If
+that happens, either lower `cookieCache.maxAge`, add
+`cookieCache.refreshCache` tuning, or reassess whether `cookieCache` should
+be enabled at all for that flow.
+
 ## Slack signature verification and idempotency
 
 Implemented in `convex/slack.ts`, `verifySlackSignature`, called at the top

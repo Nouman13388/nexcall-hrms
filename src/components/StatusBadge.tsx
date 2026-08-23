@@ -8,6 +8,8 @@ export type BadgeStatus =
   | 'COMPLETE'
   | 'active'
   | 'inactive'
+  | 'CHECK_IN'
+  | 'CHECK_OUT'
 
 const STATUS_META: Record<BadgeStatus, { label: string; tone: string }> = {
   PRESENT: { label: 'Present', tone: 'good' },
@@ -15,6 +17,8 @@ const STATUS_META: Record<BadgeStatus, { label: string; tone: string }> = {
   COMPLETE: { label: 'Complete', tone: 'good' },
   active: { label: 'Active', tone: 'good' },
   inactive: { label: 'Inactive', tone: 'muted' },
+  CHECK_IN: { label: 'Check in', tone: 'good' },
+  CHECK_OUT: { label: 'Check out', tone: 'muted' },
 }
 
 export function StatusBadge({ status }: { status: BadgeStatus }) {

@@ -10,11 +10,49 @@ import { api } from '../../../convex/_generated/api'
 import { DataTable } from '../../components/DataTable'
 import { EmployeeForm } from '../../components/EmployeeForm'
 import { StatusBadge } from '../../components/StatusBadge'
-import type { Id } from '../../../convex/_generated/dataModel'
+import { relativeTime } from '../../lib/format'
+import type { Doc, Id } from '../../../convex/_generated/dataModel'
 
 export const Route = createFileRoute('/dashboard/employees')({
   component: EmployeesPage,
 })
+
+interface SyncSummary {
+  created: number
+  matched: number
+  skipped: number
+  skippedReasons: string[]
+}
+
+interface LastSync {
+  at: number
+  summary: SyncSummary
+}
+
+// Sync from Slack is a one-shot action, not a subscription — unlike the
+// rest of this app, its result doesn't stay current on its own, so it's
+// worth remembering across a page reload rather than only for the current
+// session. localStorage is enough for a single-admin tool; not worth a
+// backend table for this.
+const LAST_SYNC_KEY = 'nexcall-hrms:lastSlackSync'
+
+function readLastSync(): LastSync | null {
+  try {
+    const raw = localStorage.getItem(LAST_SYNC_KEY)
+    return raw ? (JSON.parse(raw) as LastSync) : null
+  } catch {
+    return null
+  }
+}
+
+function writeLastSync(entry: LastSync) {
+  try {
+    localStorage.setItem(LAST_SYNC_KEY, JSON.stringify(entry))
+  } catch {
+    // Best-effort — private browsing / quota. Losing the "last synced"
+    // label isn't worth surfacing an error for.
+  }
+}
 
 function EmployeesPage() {
   // convexQuery keeps this reactive over the live WebSocket subscription —
@@ -28,29 +66,47 @@ function EmployeesPage() {
   const [editingId, setEditingId] = useState<Id<'employees'> | null>(null)
   const editingEmployee = employees?.find((e) => e._id === editingId)
 
+  const [deactivatingId, setDeactivatingId] = useState<Id<'employees'> | null>(
+    null,
+  )
+
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncError, setSyncError] = useState('')
-  const [syncSummary, setSyncSummary] = useState<{
-    created: number
-    matched: number
-    skipped: number
-    skippedReasons: string[]
-  } | null>(null)
+  const [lastSync, setLastSync] = useState<LastSync | null>(() =>
+    readLastSync(),
+  )
 
   const handleSync = async () => {
     setIsSyncing(true)
     setSyncError('')
-    setSyncSummary(null)
     try {
       // Reactive: employees.list is already subscribed above, so any rows
       // this creates/updates show up in the table the moment the action's
       // mutation writes land — no refetch call needed here.
-      const result = await syncFromSlack({})
-      setSyncSummary(result)
+      const summary = await syncFromSlack({})
+      const entry = { at: Date.now(), summary }
+      setLastSync(entry)
+      writeLastSync(entry)
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : 'Slack sync failed')
     } finally {
       setIsSyncing(false)
+    }
+  }
+
+  const handleDeactivate = async (employee: Doc<'employees'>) => {
+    if (
+      !window.confirm(
+        `Deactivate ${employee.fullName}? There is no undo for this yet.`,
+      )
+    ) {
+      return
+    }
+    setDeactivatingId(employee._id)
+    try {
+      await deactivateEmployee({ id: employee._id })
+    } finally {
+      setDeactivatingId(null)
     }
   }
 
@@ -98,9 +154,16 @@ function EmployeesPage() {
       <section className="card">
         <div className="section-header">
           <h2>Employees</h2>
-          <button type="button" onClick={handleSync} disabled={isSyncing}>
-            {isSyncing ? 'Syncing…' : 'Sync from Slack'}
-          </button>
+          <div className="sync-controls">
+            {lastSync && (
+              <span className="sync-status">
+                Last synced {relativeTime(lastSync.at)}
+              </span>
+            )}
+            <button type="button" onClick={handleSync} disabled={isSyncing}>
+              {isSyncing ? 'Syncing…' : 'Sync from Slack'}
+            </button>
+          </div>
         </div>
 
         {syncError && (
@@ -109,15 +172,16 @@ function EmployeesPage() {
           </div>
         )}
 
-        {syncSummary && (
+        {lastSync && (
           <div className="notice" role="status">
-            Slack sync: {syncSummary.created} created, {syncSummary.matched}{' '}
-            matched, {syncSummary.skipped} skipped.
-            {syncSummary.skippedReasons.length > 0 && (
+            Last Slack sync: {lastSync.summary.created} created,{' '}
+            {lastSync.summary.matched} matched, {lastSync.summary.skipped}{' '}
+            skipped.
+            {lastSync.summary.skippedReasons.length > 0 && (
               <details>
                 <summary>Why records were skipped</summary>
                 <ul>
-                  {syncSummary.skippedReasons.map((reason) => (
+                  {lastSync.summary.skippedReasons.map((reason) => (
                     <li key={reason}>{reason}</li>
                   ))}
                 </ul>
@@ -167,17 +231,12 @@ function EmployeesPage() {
                       <button
                         type="button"
                         className="button-danger"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Deactivate ${e.fullName}? There is no undo for this yet.`,
-                            )
-                          ) {
-                            void deactivateEmployee({ id: e._id })
-                          }
-                        }}
+                        disabled={deactivatingId === e._id}
+                        onClick={() => void handleDeactivate(e)}
                       >
-                        Deactivate
+                        {deactivatingId === e._id
+                          ? 'Deactivating…'
+                          : 'Deactivate'}
                       </button>
                     )}
                   </div>

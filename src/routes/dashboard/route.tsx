@@ -21,7 +21,9 @@ function DashboardLayout() {
   return (
     <div className="app-shell">
       <nav className="app-nav">
-        <span className="brand">Nexcall HRMS</span>
+        <Link to="/dashboard" className="brand">
+          Nexcall HRMS
+        </Link>
         <Link to="/dashboard/employees" activeProps={{ className: 'active' }}>
           Employees
         </Link>
