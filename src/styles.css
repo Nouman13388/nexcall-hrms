@@ -133,6 +133,224 @@ button:disabled {
   font-size: 0.875rem;
 }
 
+/* Dashboard shell (shared by every authenticated route) */
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(23, 58, 64, 0.12);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+}
+
+.app-nav .brand {
+  margin-right: auto;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.app-nav a {
+  color: #4f696d;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.app-nav a:hover,
+.app-nav a.active {
+  color: #173a40;
+}
+
+.app-main {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+/* Shared surfaces + controls used by Employee and Attendance views alike */
+
+.card {
+  padding: clamp(1.25rem, 4vw, 1.75rem);
+  border: 1px solid rgba(23, 58, 64, 0.14);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1rem 2.5rem rgba(23, 58, 64, 0.08);
+}
+
+.card h2 {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
+.notice {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(47, 145, 96, 0.25);
+  border-radius: 0.7rem;
+  color: #216b46;
+  background: rgba(47, 145, 96, 0.08);
+  font-size: 0.875rem;
+}
+
+.notice details {
+  margin-top: 0.5rem;
+}
+
+.notice ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.25rem;
+}
+
+select,
+.input {
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(23, 58, 64, 0.22);
+  border-radius: 0.7rem;
+  color: #173a40;
+  background: #fff;
+  outline: none;
+  font: inherit;
+}
+
+select:focus,
+.input:focus {
+  border-color: #328f97;
+  box-shadow: 0 0 0 3px rgba(79, 184, 178, 0.2);
+}
+
+.button-secondary {
+  background: transparent;
+  color: #247f82;
+  border: 1px solid rgba(36, 127, 130, 0.4);
+}
+
+.button-secondary:hover {
+  background: rgba(36, 127, 130, 0.08);
+}
+
+.button-danger {
+  background: #a13636;
+}
+
+.button-danger:hover {
+  background: #872b2b;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.toolbar .field {
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  min-width: 10rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(23, 58, 64, 0.1);
+  white-space: nowrap;
+}
+
+.table th {
+  color: #4f696d;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.table .row-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.table .row-actions button {
+  min-height: 2.1rem;
+  padding: 0 0.75rem;
+  font-size: 0.8rem;
+}
+
+.empty-state {
+  padding: 1.5rem;
+  color: #4f696d;
+  text-align: center;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-good {
+  color: #216b46;
+  background: rgba(47, 145, 96, 0.14);
+}
+
+.badge-warn {
+  color: #93601a;
+  background: rgba(201, 138, 30, 0.16);
+}
+
+.badge-muted {
+  color: #5a6a6c;
+  background: rgba(90, 106, 108, 0.14);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -25,7 +25,7 @@ function LoginScreen() {
       setError(signInError.message || 'Login failed')
       setIsLoading(false)
     } else {
-      window.location.href = '/'
+      window.location.href = '/dashboard'
     }
   }
 

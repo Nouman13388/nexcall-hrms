@@ -8,7 +8,9 @@ import {
 import { requireAdmin } from './auth'
 import schema from './schema'
 
-const normalizeEmail = (email: string) => email.trim().toLowerCase()
+// Exported so convex/slackSync.ts normalizes emails identically before
+// matching against by_email — one definition of "same email", not two.
+export const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
 export const create = mutation({
   args: {

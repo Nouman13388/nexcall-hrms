@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as employees from "../employees.js";
 import type * as http from "../http.js";
 import type * as slack from "../slack.js";
+import type * as slackSync from "../slackSync.js";
 
 import type {
   ApiFromModules,
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   employees: typeof employees;
   http: typeof http;
   slack: typeof slack;
+  slackSync: typeof slackSync;
 }>;
 
 /**
