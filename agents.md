@@ -2,6 +2,10 @@
 
 Save this file as `AGENTS.md` in the project root. Antigravity reads it as the standing ruleset for every agent session, not a one-time instruction — don't treat it as consumed after Phase 0.
 
+## Start here each session
+
+Check [docs/status.md](./docs/status.md) first — it's the living record of what's shipped and what's open. Deeper reference lives in `docs/`: [architecture.md](./docs/architecture.md) (schema, function surface, Slack design, deployment model), [security.md](./docs/security.md) (auth boundary, Slack verification, secrets/env var scoping), [decisions-log.md](./docs/decisions-log.md) (why, and every real bug hit so far), [setup.md](./docs/setup.md) (fresh-machine checklist). This file stays the short ruleset; put depth in `docs/`, not here.
+
 ## Mission
 
 Build a working attendance-management system: Slack check-in/out → Convex → live Admin dashboard. Admin role only. Nothing else. Target: 3 hours, walking-skeleton first.
