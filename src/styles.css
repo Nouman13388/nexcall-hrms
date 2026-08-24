@@ -101,6 +101,7 @@ input:focus {
 button {
   display: inline-flex;
   min-height: 2.75rem;
+  padding: 0 1.25rem;
   align-items: center;
   justify-content: center;
   border: 0;
