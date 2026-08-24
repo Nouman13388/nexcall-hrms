@@ -2,12 +2,13 @@ import { v } from 'convex/values'
 import { query } from './_generated/server'
 import { requireAdmin } from './auth'
 import schema from './schema'
+import { localDateString } from './time'
 
 // Bound consistent with employees.list's existing .take(500) — this is a
 // single-workspace admin tool, not a scan-everything analytics query.
 const MAX_ROWS = 500
 
-const todayDate = () => new Date().toISOString().slice(0, 10)
+const todayDate = localDateString
 
 export const todaySnapshot = query({
   args: {},

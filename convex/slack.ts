@@ -1,5 +1,6 @@
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { localTimeString } from "./time";
 import type { ActionCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
@@ -145,8 +146,8 @@ async function buildResolvedHomeView(ctx: ActionCtx, employee: Doc<"employees">)
   const checkedOut = Boolean(today?.checkOutAt);
 
   if (checkedOut) {
-    const checkIn = today?.checkInAt ? formatTime(today.checkInAt) : "—";
-    const checkOut = today?.checkOutAt ? formatTime(today.checkOutAt) : "—";
+    const checkIn = today?.checkInAt ? localTimeString(today.checkInAt) : "—";
+    const checkOut = today?.checkOutAt ? localTimeString(today.checkOutAt) : "—";
     blocks.push({
       type: "section",
       text: {
@@ -159,7 +160,7 @@ async function buildResolvedHomeView(ctx: ActionCtx, employee: Doc<"employees">)
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `:large_green_circle: *Today's status: Checked in* at ${formatTime(today!.checkInAt!)}`,
+        text: `:large_green_circle: *Today's status: Checked in* at ${localTimeString(today!.checkInAt!)}`,
       },
     });
     blocks.push({
@@ -194,13 +195,6 @@ async function buildResolvedHomeView(ctx: ActionCtx, employee: Doc<"employees">)
   }
 
   return { type: "home", blocks };
-}
-
-function formatTime(ms: number) {
-  return new Date(ms).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 export const interactions = httpAction(async (ctx, request) => {

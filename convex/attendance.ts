@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 import { internalMutation, internalQuery, mutation, query } from './_generated/server'
 import { requireAdmin } from './auth'
 import schema from './schema'
+import { localDateString } from './time'
 import type { Id } from './_generated/dataModel'
 import type { MutationCtx } from './_generated/server'
 
@@ -37,7 +38,7 @@ async function recordEventLogic(ctx: MutationCtx, args: RecordEventArgs) {
   if (!args.employeeId) return { success: false, status: 'UNMATCHED' }
 
   const employeeId = args.employeeId
-  const date = new Date(args.occurredAt).toISOString().slice(0, 10)
+  const date = localDateString(args.occurredAt)
   const existing = await ctx.db
     .query('attendanceRecords')
     .withIndex('by_employee_date', (q) =>
@@ -158,7 +159,7 @@ export const getToday = internalQuery({
   args: { employeeId: v.id('employees') },
   returns: v.union(schema.doc('attendanceRecords'), v.null()),
   handler: async (ctx, { employeeId }) => {
-    const date = new Date().toISOString().slice(0, 10)
+    const date = localDateString()
     return ctx.db
       .query('attendanceRecords')
       .withIndex('by_employee_date', (q) =>
