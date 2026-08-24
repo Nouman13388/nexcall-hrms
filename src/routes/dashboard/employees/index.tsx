@@ -4,16 +4,16 @@ import {
   useConvexMutation,
 } from '@convex-dev/react-query'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import { api } from '../../../convex/_generated/api'
-import { DataTable } from '../../components/DataTable'
-import { EmployeeForm } from '../../components/EmployeeForm'
-import { StatusBadge } from '../../components/StatusBadge'
-import { relativeTime } from '../../lib/format'
-import type { Doc, Id } from '../../../convex/_generated/dataModel'
+import { api } from '../../../../convex/_generated/api'
+import { DataTable } from '../../../components/DataTable'
+import { EmployeeForm } from '../../../components/EmployeeForm'
+import { StatusBadge } from '../../../components/StatusBadge'
+import { relativeTime } from '../../../lib/format'
+import type { Doc, Id } from '../../../../convex/_generated/dataModel'
 
-export const Route = createFileRoute('/dashboard/employees')({
+export const Route = createFileRoute('/dashboard/employees/')({
   component: EmployeesPage,
 })
 
@@ -198,7 +198,19 @@ function EmployeesPage() {
             rowKey={(e) => e._id}
             emptyMessage="No employees yet — add the first one above."
             columns={[
-              { key: 'name', header: 'Name', render: (e) => e.fullName },
+              {
+                key: 'name',
+                header: 'Name',
+                render: (e) => (
+                  <Link
+                    to="/dashboard/employees/$id"
+                    params={{ id: e._id }}
+                    className="table-link"
+                  >
+                    {e.fullName}
+                  </Link>
+                ),
+              },
               { key: 'email', header: 'Email', render: (e) => e.email },
               {
                 key: 'department',

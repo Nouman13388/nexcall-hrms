@@ -14,8 +14,9 @@ import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardAttendanceRouteImport } from './routes/dashboard/attendance'
-import { Route as DashboardEmployeesRouteImport } from './routes/dashboard/employees'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as DashboardEmployeesIndexRouteImport } from './routes/dashboard/employees/index'
+import { Route as DashboardEmployeesIdRouteImport } from './routes/dashboard/employees/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -42,15 +43,20 @@ const DashboardAttendanceRoute = DashboardAttendanceRouteImport.update({
   path: '/attendance',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardEmployeesRoute = DashboardEmployeesRouteImport.update({
-  id: '/employees',
-  path: '/employees',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardEmployeesIndexRoute = DashboardEmployeesIndexRouteImport.update({
+  id: '/employees/',
+  path: '/employees/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardEmployeesIdRoute = DashboardEmployeesIdRouteImport.update({
+  id: '/employees/$id',
+  path: '/employees/$id',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -58,17 +64,19 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/attendance': typeof DashboardAttendanceRoute
-  '/dashboard/employees': typeof DashboardEmployeesRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/dashboard/employees/$id': typeof DashboardEmployeesIdRoute
+  '/dashboard/employees/': typeof DashboardEmployeesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard/attendance': typeof DashboardAttendanceRoute
-  '/dashboard/employees': typeof DashboardEmployeesRoute
   '/dashboard': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/dashboard/employees/$id': typeof DashboardEmployeesIdRoute
+  '/dashboard/employees': typeof DashboardEmployeesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -76,9 +84,10 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/attendance': typeof DashboardAttendanceRoute
-  '/dashboard/employees': typeof DashboardEmployeesRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/dashboard/employees/$id': typeof DashboardEmployeesIdRoute
+  '/dashboard/employees/': typeof DashboardEmployeesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,26 +96,29 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/attendance'
-    | '/dashboard/employees'
     | '/dashboard/'
     | '/api/auth/$'
+    | '/dashboard/employees/$id'
+    | '/dashboard/employees/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/dashboard/attendance'
-    | '/dashboard/employees'
     | '/dashboard'
     | '/api/auth/$'
+    | '/dashboard/employees/$id'
+    | '/dashboard/employees'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
     | '/login'
     | '/dashboard/attendance'
-    | '/dashboard/employees'
     | '/dashboard/'
     | '/api/auth/$'
+    | '/dashboard/employees/$id'
+    | '/dashboard/employees/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -153,13 +165,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAttendanceRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/employees': {
-      id: '/dashboard/employees'
-      path: '/employees'
-      fullPath: '/dashboard/employees'
-      preLoaderRoute: typeof DashboardEmployeesRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -167,19 +172,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/employees/': {
+      id: '/dashboard/employees/'
+      path: '/employees'
+      fullPath: '/dashboard/employees/'
+      preLoaderRoute: typeof DashboardEmployeesIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/employees/$id': {
+      id: '/dashboard/employees/$id'
+      path: '/employees/$id'
+      fullPath: '/dashboard/employees/$id'
+      preLoaderRoute: typeof DashboardEmployeesIdRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
   }
 }
 
 interface DashboardRouteRouteChildren {
   DashboardAttendanceRoute: typeof DashboardAttendanceRoute
-  DashboardEmployeesRoute: typeof DashboardEmployeesRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardEmployeesIdRoute: typeof DashboardEmployeesIdRoute
+  DashboardEmployeesIndexRoute: typeof DashboardEmployeesIndexRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardAttendanceRoute: DashboardAttendanceRoute,
-  DashboardEmployeesRoute: DashboardEmployeesRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardEmployeesIdRoute: DashboardEmployeesIdRoute,
+  DashboardEmployeesIndexRoute: DashboardEmployeesIndexRoute,
 }
 
 const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { api } from '../../../convex/_generated/api'
 import { DataTable } from '../../components/DataTable'
 import { StatusBadge } from '../../components/StatusBadge'
+import { formatClockTime } from '../../lib/format'
 import type { Id } from '../../../convex/_generated/dataModel'
 
 type StatusFilter = '' | 'PRESENT' | 'MISSING_CHECKOUT' | 'COMPLETE'
@@ -37,14 +38,6 @@ export const Route = createFileRoute('/dashboard/attendance')({
   }),
   component: AttendancePage,
 })
-
-function formatTime(ms?: number) {
-  if (!ms) return '—'
-  return new Date(ms).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 function AttendancePage() {
   const initialSearch = Route.useSearch()
@@ -160,12 +153,12 @@ function AttendancePage() {
             {
               key: 'checkIn',
               header: 'Check in',
-              render: (r) => formatTime(r.checkInAt),
+              render: (r) => formatClockTime(r.checkInAt),
             },
             {
               key: 'checkOut',
               header: 'Check out',
-              render: (r) => formatTime(r.checkOutAt),
+              render: (r) => formatClockTime(r.checkOutAt),
             },
             {
               key: 'hours',

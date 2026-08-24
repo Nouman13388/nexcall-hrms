@@ -68,6 +68,16 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         rel: 'stylesheet',
         href: appCss,
       },
+      // No brand asset existed anywhere in the repo (checked for a logo/
+      // favicon from the marketing site work — none found) — a plain
+      // wordmark initial in the existing brand teal (#247f82, matches
+      // .app-nav/button colors in styles.css), inlined as a data URI so it
+      // doesn't need its own asset-pipeline entry.
+      {
+        rel: 'icon',
+        type: 'image/svg+xml',
+        href: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23247f82'/%3E%3Ctext x='32' y='45' font-family='Arial, Helvetica, sans-serif' font-size='34' font-weight='700' fill='%23ffffff' text-anchor='middle'%3EN%3C/text%3E%3C/svg%3E",
+      },
     ],
   }),
   beforeLoad: async (ctx) => {

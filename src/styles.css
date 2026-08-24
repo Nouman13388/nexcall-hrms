@@ -464,6 +464,77 @@ select:focus,
   background: rgba(90, 106, 108, 0.14);
 }
 
+.table-link {
+  color: #173a40;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.table-link:hover {
+  color: #247f82;
+  text-decoration: underline;
+}
+
+/* Employee detail page's profile fields. */
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 0;
+}
+
+.profile-grid dt {
+  margin: 0 0 0.3rem;
+  color: #4f696d;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.profile-grid dd {
+  margin: 0;
+  font-weight: 650;
+}
+
+/* Headcount is a different kind of metric from the four today-scoped
+   stat-grid cards (total roster vs. daily status breakdown) — a distinct,
+   horizontal card instead of a 5th grid tile, so the grid never has to
+   resolve an odd number of cards into a clean row at every breakpoint. */
+.team-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+a.team-card:hover {
+  box-shadow: 0 1.5rem 3rem rgba(23, 58, 64, 0.14);
+  transform: translateY(-2px);
+}
+
+.team-card-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.team-card .stat-number {
+  font-size: 1.6rem;
+}
+
+.team-card-cta {
+  color: #328f97;
+  font-weight: 650;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

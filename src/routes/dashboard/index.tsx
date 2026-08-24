@@ -4,7 +4,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { api } from '../../../convex/_generated/api'
 import { DataTable } from '../../components/DataTable'
 import { StatusBadge } from '../../components/StatusBadge'
-import { relativeTime } from '../../lib/format'
+import { dayLabel, relativeTime } from '../../lib/format'
 import type { Id } from '../../../convex/_generated/dataModel'
 
 export const Route = createFileRoute('/dashboard/')({
@@ -66,11 +66,20 @@ function DashboardHome() {
           <div className="stat-number">{snapshot?.notCheckedIn ?? '—'}</div>
           <div className="stat-label">Not checked in</div>
         </Link>
-        <Link to="/dashboard/employees" className="card stat-card">
-          <div className="stat-number">{employees?.length ?? '—'}</div>
-          <div className="stat-label">Employees</div>
-        </Link>
       </div>
+
+      {/* Deliberately outside .stat-grid: total headcount is a different
+          kind of number from the four cards above (roster size vs. today's
+          status breakdown), not a 5th daily stat — grouping it apart avoids
+          the grid ever needing to resolve an odd card count into a clean
+          row, and is the more honest read of what this number actually is. */}
+      <Link to="/dashboard/employees" className="card team-card">
+        <div className="team-card-meta">
+          <span className="stat-number">{employees?.length ?? '—'}</span>
+          <span className="stat-label">Employees</span>
+        </div>
+        <span className="team-card-cta">View all →</span>
+      </Link>
 
       <section className="card">
         <h2>Recent activity</h2>
@@ -96,7 +105,13 @@ function DashboardHome() {
               {
                 key: 'time',
                 header: 'When',
-                render: (e) => relativeTime(e._creationTime),
+                // occurredAt (the actual check-in/out instant), not
+                // _creationTime (row insert time) — they usually match, but
+                // an ADMIN correction can backdate occurredAt, and this is
+                // also the same instant attendanceRecords.date buckets by,
+                // so the label here stays consistent with which day's
+                // snapshot the event actually counts toward.
+                render: (e) => `${dayLabel(e.occurredAt)}, ${relativeTime(e.occurredAt)}`,
               },
             ]}
           />
