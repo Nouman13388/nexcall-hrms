@@ -472,3 +472,84 @@ select:focus,
     transition: none !important;
   }
 }
+
+/* Mobile (phones, roughly <=640px). The layout is already fluid almost
+   everywhere (clamp()'d padding, auto-fit grids, .table-wrap's horizontal
+   scroll) — this section targets the handful of places that were flex rows
+   with no wrap, or touch targets sized for a mouse. */
+@media (max-width: 640px) {
+  .app-nav {
+    flex-wrap: wrap;
+    gap: 0.6rem 1rem;
+    padding: 0.85rem 1rem;
+  }
+
+  /* Brand takes its own row; nav links + logout wrap onto the next one
+     instead of overflowing the header horizontally. */
+  .app-nav .brand {
+    flex: 1 0 100%;
+    margin-right: 0;
+  }
+
+  /* Bigger tap targets than the desktop underline-link padding gives —
+     0.35rem/0.05rem is comfortably mouse-sized but too tight for a thumb. */
+  .app-nav a,
+  .app-nav .logout-button {
+    padding: 0.5rem 0.4rem;
+  }
+
+  .app-main {
+    padding: 1.5rem 1rem 3rem;
+    gap: 1.25rem;
+  }
+
+  .section-header {
+    flex-wrap: wrap;
+  }
+
+  .sync-controls {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .sync-controls button {
+    width: 100%;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 0.75rem;
+  }
+
+  .stat-number {
+    font-size: 1.85rem;
+  }
+
+  /* One filter per row instead of two cramped ones — clearer to scan and
+     tap than whatever `auto-fit, minmax(10rem, ...)` happens to fit. */
+  .toolbar .field {
+    min-width: 100%;
+  }
+
+  .form-actions {
+    flex-wrap: wrap;
+  }
+
+  .form-actions button {
+    flex: 1 1 auto;
+  }
+
+  /* Row-action buttons are sized down for table density on desktop
+     (2.1rem, ~34px) — under the ~44px touch-target guideline. Bump them
+     back up now that a mouse isn't doing the pointing. */
+  .table .row-actions button {
+    min-height: 2.5rem;
+  }
+
+  /* iOS Safari needs this for momentum scrolling inside a fixed-height
+     overflow container; modern versions default to it but it's cheap
+     insurance for older ones still in the field. */
+  .table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+}
