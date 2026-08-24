@@ -549,6 +549,27 @@ a.team-card:hover {
    scroll) — this section targets the handful of places that were flex rows
    with no wrap, or touch targets sized for a mouse. */
 @media (max-width: 640px) {
+  /* Flex/grid items default to min-width: auto, not 0 — their minimum size
+     is their *content's* min-content width, not whatever minmax()/flex-
+     basis says. A wide-enough child (unwrapped "Nexcall HRMS", "Missing
+     checkout") can silently force the row/track wider than the viewport
+     that way, pushing the whole page into horizontal scroll — the exact
+     shape of the cut-off-on-one-side symptom this is fixing. Resetting it
+     is the standard fix, applied everywhere it's relevant on mobile rather
+     than chasing one specific instance of it.
+     https://defensivecss.dev/tip/flexbox-min-content-size/ */
+  .app-nav,
+  .app-nav > *,
+  .stat-grid > *,
+  .team-card,
+  .team-card > * {
+    min-width: 0;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
   .app-nav {
     flex-wrap: wrap;
     gap: 0.6rem 1rem;
