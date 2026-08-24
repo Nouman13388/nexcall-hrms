@@ -1,5 +1,7 @@
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -36,7 +38,7 @@ const verifySlackSignature = async (request: Request) => {
   return crypto.subtle.verify("HMAC", key, bytes, encoder.encode(sigBaseString));
 };
 
-export const events = httpAction(async (_ctx, request) => {
+export const events = httpAction(async (ctx, request) => {
   const isValid = await verifySlackSignature(request);
   if (!isValid) return new Response("Unauthorized", { status: 401 });
 
@@ -55,45 +57,46 @@ export const events = httpAction(async (_ctx, request) => {
   if (body.type === "event_callback" && isRecord(body.event)) {
     const event = body.event;
     if (event.type === "app_home_opened" && typeof event.user === "string") {
-      await publishAppHome(event.user);
+      const { employee } = await resolveEmployee(ctx, event.user);
+      await publishAppHome(ctx, event.user, employee);
     }
   }
 
   return new Response("OK", { status: 200 });
 });
 
-async function publishAppHome(slackUserId: string) {
+// Same resolution flow used by the check-in/check-out interaction:
+// slackUserId → by_slackUserId, falling back to a users.info email lookup
+// → by_email (caching the slackUserId on match). Shared here so the Home
+// tab and the button handler never drift out of sync.
+async function resolveEmployee(
+  ctx: ActionCtx,
+  slackUserId: string,
+): Promise<{ employee: Doc<"employees"> | null; slackEmail?: string }> {
+  const cached = await ctx.runQuery(internal.employees.getBySlackId, { slackUserId });
+  if (cached) return { employee: cached };
+
+  const slackEmail = await getSlackUserEmail(slackUserId);
+  if (!slackEmail) return { employee: null };
+
+  const employee = await ctx.runQuery(internal.employees.getByEmail, { email: slackEmail });
+  if (employee) {
+    await ctx.runMutation(internal.employees.updateSlackId, { id: employee._id, slackUserId });
+  }
+  return { employee, slackEmail };
+}
+
+async function publishAppHome(
+  ctx: ActionCtx,
+  slackUserId: string,
+  employee: Doc<"employees"> | null,
+) {
   const token = process.env.SLACK_BOT_TOKEN;
   if (!token) return;
 
-  const view = {
-    type: "home",
-    blocks: [
-      {
-        type: "header",
-        text: { type: "plain_text", text: "Nexcall HRMS" },
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "Check In" },
-            style: "primary",
-            value: "CHECK_IN",
-            action_id: "check_in_action",
-          },
-          {
-            type: "button",
-            text: { type: "plain_text", text: "Check Out" },
-            style: "danger",
-            value: "CHECK_OUT",
-            action_id: "check_out_action",
-          },
-        ],
-      },
-    ],
-  };
+  const view = employee
+    ? await buildResolvedHomeView(ctx, employee)
+    : buildUnmatchedHomeView();
 
   await fetch("https://slack.com/api/views.publish", {
     method: "POST",
@@ -102,6 +105,101 @@ async function publishAppHome(slackUserId: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ user_id: slackUserId, view }),
+  });
+}
+
+function buildUnmatchedHomeView() {
+  return {
+    type: "home",
+    blocks: [
+      {
+        type: "header",
+        text: { type: "plain_text", text: "Nexcall HRMS" },
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: "You're not recognized as an employee yet. Please contact HR to get set up.",
+        },
+      },
+    ],
+  };
+}
+
+async function buildResolvedHomeView(ctx: ActionCtx, employee: Doc<"employees">) {
+  const today = await ctx.runQuery(internal.attendance.getToday, { employeeId: employee._id });
+
+  const blocks: Record<string, unknown>[] = [
+    {
+      type: "header",
+      text: { type: "plain_text", text: "Nexcall HRMS" },
+    },
+    {
+      type: "section",
+      text: { type: "mrkdwn", text: `Welcome, *${employee.fullName}*` },
+    },
+  ];
+
+  const checkedIn = Boolean(today?.checkInAt);
+  const checkedOut = Boolean(today?.checkOutAt);
+
+  if (checkedOut) {
+    const checkIn = today?.checkInAt ? formatTime(today.checkInAt) : "—";
+    const checkOut = today?.checkOutAt ? formatTime(today.checkOutAt) : "—";
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `:white_check_mark: *Today's status: Complete*\nChecked in ${checkIn} · Checked out ${checkOut}`,
+      },
+    });
+  } else if (checkedIn) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `:large_green_circle: *Today's status: Checked in* at ${formatTime(today!.checkInAt!)}`,
+      },
+    });
+    blocks.push({
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: { type: "plain_text", text: "Check Out" },
+          style: "danger",
+          value: "CHECK_OUT",
+          action_id: "check_out_action",
+        },
+      ],
+    });
+  } else {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: "*Today's status:* Not checked in yet" },
+    });
+    blocks.push({
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: { type: "plain_text", text: "Check In" },
+          style: "primary",
+          value: "CHECK_IN",
+          action_id: "check_in_action",
+        },
+      ],
+    });
+  }
+
+  return { type: "home", blocks };
+}
+
+function formatTime(ms: number) {
+  return new Date(ms).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -133,22 +231,8 @@ export const interactions = httpAction(async (ctx, request) => {
       return new Response("Unsupported action", { status: 400 });
     }
 
-    let employeeId = null;
-    let employee = await ctx.runQuery(internal.employees.getBySlackId, { slackUserId });
-    let slackEmail: string | undefined;
-
-    if (!employee) {
-      slackEmail = await getSlackUserEmail(slackUserId);
-      if (slackEmail) {
-        employee = await ctx.runQuery(internal.employees.getByEmail, { email: slackEmail });
-        if (employee) {
-          await ctx.runMutation(internal.employees.updateSlackId, { id: employee._id, slackUserId });
-          employeeId = employee._id;
-        }
-      }
-    } else {
-      employeeId = employee._id;
-    }
+    const { employee, slackEmail } = await resolveEmployee(ctx, slackUserId);
+    const employeeId = employee?._id ?? null;
 
     const rawSlackUserId = slackUserId;
     const rawSlackEmail = employee?.email ?? slackEmail;
@@ -167,6 +251,11 @@ export const interactions = httpAction(async (ctx, request) => {
     } else {
       await sendEphemeralMessage(slackUserId, `Successfully recorded ${eventType.replace("_", " ")}`);
     }
+
+    // Refresh the Home tab immediately so the button state (and today's
+    // status) reflects the write we just made, without waiting on the
+    // user to close/reopen the tab.
+    await publishAppHome(ctx, slackUserId, employee);
   }
 
   return new Response("OK", { status: 200 });

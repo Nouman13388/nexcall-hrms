@@ -33,18 +33,33 @@ assumption that "convex dev running locally" is enough — see the
 decisions-log entry in [decisions-log.md](./decisions-log.md) for the
 exact failure mode this caused.
 
-### `CONVEX_DEPLOY_KEY` scope gotcha
+### `CONVEX_DEPLOY_KEY` — never stored, always inline
 
-`npx convex deploy` (used by `npm run deploy` and `npm run preview`) wants a
-deploy key scoped to a specific target deployment. If `CONVEX_DEPLOY_KEY` is
-sitting in your shell/`.env` while you run `npx convex dev`, it can conflict
-with the interactive dev-deployment flow `convex dev` expects to manage
-itself. Keep `CONVEX_DEPLOY_KEY` **unset** for everyday `npx convex dev`
-local work, and only export/set it in the environment that actually runs
-`npx convex deploy` (CI, or your shell right before a manual production
-deploy) — generate it fresh from the Convex dashboard for the target
-deployment (dev vs. prod are different keys), and don't leave a
-prod-scoped key sitting in a shell you also use for `convex dev`.
+`CONVEX_DEPLOY_KEY` is **never** kept in `.env` or `.env.local` — not even
+temporarily. A key sitting in either file gets loaded automatically by every
+`npx convex dev` invocation, and since a deploy key is scoped to a specific
+target deployment (dev vs. prod are different keys), an auto-loaded
+prod-scoped key silently hijacks `convex dev` into operating on production
+instead of spinning up its own local/dev deployment — no prompt, no warning.
+This already happened once in this project; see
+[decisions-log.md](./decisions-log.md).
+
+The rule: `CONVEX_DEPLOY_KEY` is supplied **inline, per command**, only when
+a prod action is genuinely intended, and only for that one invocation —
+never exported into a shell you also use for everyday `convex dev`, never
+written to a file that's auto-loaded.
+
+```bash
+# Everyday local work — no deploy key present anywhere, dev deployment only
+npx convex dev
+
+# A genuinely intended prod action — key supplied inline, scoped to this command
+CONVEX_DEPLOY_KEY="prod:<deployment>|<key>" npx convex env set SOME_VAR value --prod
+CONVEX_DEPLOY_KEY="prod:<deployment>|<key>" npm run deploy
+```
+
+Generate the key fresh from the Convex dashboard for the target deployment
+each time you need one; don't keep a copy on disk.
 
 ## 2. Slack app
 
@@ -71,7 +86,7 @@ Quick reference:
 Convex dashboard — never in a client-exposed file):
 
 | Var | Value |
-|---|---|
+| --- | --- |
 | `SLACK_SIGNING_SECRET` | from the Slack app's Basic Information page |
 | `SLACK_BOT_TOKEN` | from the Slack app's OAuth & Permissions page |
 | `BETTER_AUTH_SECRET` | a random secret for Better Auth session signing |
@@ -82,7 +97,7 @@ locally and in Cloudflare's build step — read via `import.meta.env` in
 `src/`, never `process.env`):
 
 | Var | Value |
-|---|---|
+| --- | --- |
 | `VITE_CONVEX_URL` | the `.convex.cloud` URL from step 1 |
 | `VITE_CONVEX_SITE_URL` | the `.convex.site` URL from step 1 |
 

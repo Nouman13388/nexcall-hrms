@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { internalMutation, mutation, query } from './_generated/server'
+import { internalMutation, internalQuery, mutation, query } from './_generated/server'
 import { requireAdmin } from './auth'
 import schema from './schema'
 import type { Id } from './_generated/dataModel'
@@ -148,6 +148,23 @@ export const correctRecord = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
     return recordEventLogic(ctx, { ...args, source: 'ADMIN' })
+  },
+})
+
+// Used by the Slack App Home view to decide which button (Check In vs
+// Check Out) is valid right now — same "one row per employee per day"
+// record the Slack/Admin write paths maintain, just read-only here.
+export const getToday = internalQuery({
+  args: { employeeId: v.id('employees') },
+  returns: v.union(schema.doc('attendanceRecords'), v.null()),
+  handler: async (ctx, { employeeId }) => {
+    const date = new Date().toISOString().slice(0, 10)
+    return ctx.db
+      .query('attendanceRecords')
+      .withIndex('by_employee_date', (q) =>
+        q.eq('employeeId', employeeId).eq('date', date),
+      )
+      .unique()
   },
 })
 

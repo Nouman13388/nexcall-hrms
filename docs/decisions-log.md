@@ -152,3 +152,51 @@ handoff.
 `src/integrations/tanstack-query/root-provider.tsx` and `devtools.tsx`,
 leaving `src/router.tsx`'s single `ConvexQueryClient`-backed `QueryClient`
 as the only instance in the app.
+
+## Bug: prod-scoped `CONVEX_DEPLOY_KEY` in `.env` hijacked `npx convex dev`
+
+**What happened:** `.env` held a prod-scoped `CONVEX_DEPLOY_KEY` (left over
+from a manual `npx convex env set ... --prod` session) alongside the usual
+Slack/auth secrets. A later plain `npx convex dev --once`, run only to
+type-check a change, silently targeted the production deployment
+(`proficient-okapi-951`) instead of spinning up its own local/dev
+deployment — no prompt, no warning that it wasn't a dev deployment.
+
+**Root cause:** `.env`/`.env.local` are auto-loaded by every `convex`
+invocation. A deploy key is scoped to one specific target deployment (dev
+and prod are different keys), so an auto-loaded prod key overrides
+`convex dev`'s normal behavior of managing its own dev deployment.
+
+**Fix / takeaway:** `CONVEX_DEPLOY_KEY` is never written to `.env` or
+`.env.local` — only supplied inline, per command, for a deliberately
+intended prod action (`CONVEX_DEPLOY_KEY="..." npx convex <command>
+--prod`), never left sitting in a file or shell that also runs everyday
+`convex dev`. See [setup.md](./setup.md).
+
+## Bug: reinstalling the Slack app rotates `SLACK_BOT_TOKEN`, breaking every Slack API call until it's re-synced
+
+**What happened:** Reinstalling the Slack app to the workspace — for a
+scope change, an uninstall/reinstall, or any other trigger that forces
+reinstall — issues a brand new `xoxb-` Bot User OAuth Token. The value
+Convex has set for `SLACK_BOT_TOKEN` (`npx convex env set` on the prod
+deployment, per [setup.md](./setup.md)) does not update itself; it keeps
+the old, now-invalid token until someone copies the new one over. Every
+Slack API call `convex/slack.ts` makes with the stale token
+(`users.info`, `views.publish`, `chat.postMessage`) then fails silently
+from the outside — the symptom looks like a code bug ("should work but
+doesn't") when it's actually a stale credential.
+
+**Root cause:** the local `.env` copy of `SLACK_BOT_TOKEN` and the actual
+value set on the Convex deployment are two independent copies with no
+automatic sync. A reinstall updates neither on its own — updating the
+local `.env` file is not the same as updating Convex's env.
+
+**Fix / takeaway:** after *any* Slack app reinstall, re-copy the new
+`xoxb-` token from Slack's OAuth & Permissions page into Convex's prod env
+using the inline `CONVEX_DEPLOY_KEY` pattern established above:
+`CONVEX_DEPLOY_KEY="..." npx convex env set SLACK_BOT_TOKEN "xoxb-..."
+--prod`. Editing local `.env` alone does not fix anything Convex actually
+calls — that's the second time in this session a stale credential caused
+a "should work but doesn't" symptom, so treat "did we just reinstall the
+Slack app" as a standing first-check whenever Slack API calls start
+failing after previously working.
