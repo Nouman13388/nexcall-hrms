@@ -234,6 +234,36 @@ call site. If the org ever operates across multiple timezones, this single
 constant is the one place that assumption would need to become
 per-employee instead of global.
 
+## Bug: custom domain migration broke login — `SITE_URL` (Better Auth `baseURL`) wasn't updated
+
+**What happened:** Cloudflare was pointed at a custom domain
+(`hrms.nexcalltech.com`) instead of the `*.workers.dev` URL. Login on the
+new domain failed with a `403` and `"Invalid origin"` on
+`POST /api/auth/sign-in/email`; the old `*.workers.dev` URL kept logging in
+fine. Nothing else broke — Convex and Slack are origin-agnostic, so this was
+specific to Better Auth.
+
+**Root cause:** Better Auth's `baseURL` is set from the Convex env var
+`SITE_URL` ([convex/auth.ts](../convex/auth.ts)), and with no
+`trustedOrigins` configured, Better Auth only trusts requests whose
+`Origin` header matches `baseURL`. `SITE_URL` still held the old
+`*.workers.dev` URL after the domain switch — nobody updates a Convex env
+var by pointing a DNS record, they're two unrelated systems — so requests
+from the new origin were rejected outright, while the stale-but-still-valid
+old origin kept working, making it look domain-specific/confusing rather
+than "one var is stale."
+
+**Fix / takeaway:** `SITE_URL` was updated to `https://hrms.nexcalltech.com`
+(the custom domain is now the only trusted origin — the old `*.workers.dev`
+URL will now fail login the same way, which is expected, not a regression).
+**Any future domain change (custom domain added, apex vs. `www`, staging
+subdomain, etc.) must update `SITE_URL` in Convex's prod env in the same
+step** — a DNS/Cloudflare-side domain change and a Convex env var are
+independent systems with no automatic sync between them. If multiple
+domains ever need to log in simultaneously (a transition period, a staging
+alias), that needs `trustedOrigins: [...]` added to the `betterAuth(...)`
+config in `convex/auth.ts`, not just a `SITE_URL` swap.
+
 ## Bug: reinstalling the Slack app rotates `SLACK_BOT_TOKEN`, breaking every Slack API call until it's re-synced
 
 **What happened:** Reinstalling the Slack app to the workspace — for a
