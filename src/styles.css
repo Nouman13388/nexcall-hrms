@@ -174,6 +174,27 @@ button:disabled {
   border-bottom-color: #247f82;
 }
 
+.app-nav .logout-button {
+  margin-left: 0.5rem;
+  padding: 0.35rem 0.05rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: #4f696d;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.app-nav .logout-button:hover {
+  color: #b3261e;
+}
+
+.app-nav .logout-button:disabled {
+  color: #9fb0b2;
+  cursor: default;
+}
+
 .app-main {
   max-width: 72rem;
   margin: 0 auto;

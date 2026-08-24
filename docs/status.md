@@ -48,6 +48,8 @@ Phase numbers match the build order in [../agents.md](../agents.md).
 
 ## What's open
 
+- The prioritized Phase 2+ plan is tracked in [roadmap.md](./roadmap.md),
+  beginning with the Priority 0 admin/owner exclusion bug fix.
 - Phase 4 (corrections UI, unmatched-review UI) not started — `/` and
   `/dashboard/{index,employees,attendance}` are the only routes; no page for
   `attendance.correctRecord`/`listUnmatched`/`linkUnmatched` yet.
