@@ -26,7 +26,7 @@ const verifySlackSignature = async (request: Request) => {
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["verify"]
   );
   
   if (!signature.startsWith("v0=")) return false;
