@@ -69,10 +69,13 @@ mutation code instead of the schema:
 | `slack.events` / `slack.interactions` | `httpAction` | Slack Events API + Interactivity, signature-verified |
 | `employees.list/create/update/deactivate` | query/mutation | Admin employee CRUD (all gated by `requireAdmin`) |
 | `employees.getBySlackId/getByEmail/updateSlackId` | internal query/mutation | Slack-only employee resolution helpers, not callable from the client |
+| `slackSync.syncFromSlack` | action | matches workspace members to employee records by email, backs the Admin "Sync from Slack" button |
 | `attendance.recordEvent` | `internalMutation` | shared write path for Slack + Admin sources, includes idempotency check |
+| `attendance.getToday` | `internalQuery` | today's `attendanceRecords` row for one employee, `by_employee_date` — backs the Slack Home tab's context-aware buttons |
 | `attendance.listRecords` | query | filter by employee/date range/status |
 | `attendance.correctRecord` | mutation | wraps the same recording logic with `source: "ADMIN"` |
-| `attendance.listUnmatched` / `.linkUnmatched` | query/mutation | unmatched-event review queue |
+| `attendance.listUnmatched` / `.linkUnmatched` | query/mutation | unmatched-event review queue (backend only — no Admin UI yet, see [status.md](./status.md)) |
+| `dashboard.todaySnapshot` / `.recentActivity` | query | live Admin dashboard: today's present/missing-checkout/complete/not-checked-in counts + recent `attendanceEvents` feed |
 | `auth.seedAdmin` | `internalMutation` | one-time admin account creation (see [setup.md](./setup.md)) |
 
 `attendance.recordEvent` is `internalMutation`, not a public `mutation` — the
@@ -88,8 +91,12 @@ logic per source" rule in [../agents.md](../agents.md).
    `verifySlackSignature`): every inbound request is verified with Web Crypto
    HMAC-SHA256 over `v0:{timestamp}:{body}` before any payload is trusted.
    Requests older than 5 minutes are rejected (replay protection). No Node
-   action is needed — this runs as a plain `httpAction`.
-2. **Employee resolution** (`convex/slack.ts` → `interactions`):
+   action is needed — this runs as a plain `httpAction`. The HMAC key is
+   imported with `["verify"]` usage (imported with `["sign"]` at one point —
+   a real bug that made every Slack request fail; see
+   [decisions-log.md](./decisions-log.md)).
+2. **Employee resolution** (`convex/slack.ts`, `resolveEmployee()` — shared
+   by both `events` and `interactions`, not duplicated per caller):
    - Look up `slackUserId` via `employees.getBySlackId` (`by_slackUserId`
      index) — fast path for a previously-matched user.
    - No match → call Slack's `users.info` for the email, look up
@@ -106,9 +113,17 @@ logic per source" rule in [../agents.md](../agents.md).
    (`ALREADY_CHECKED_IN` / `ALREADY_CHECKED_OUT`), while `ADMIN`-sourced
    events always overwrite — that's what makes manual corrections possible
    without a separate code path.
-4. **App Home**: `publishAppHome` posts a `views.publish` call with Check
-   In / Check Out buttons (`action_id: check_in_action` / `check_out_action`)
-   whenever Slack sends an `app_home_opened` event.
+4. **App Home**: on `app_home_opened`, `resolveEmployee()` runs first, then
+   `publishAppHome` posts a `views.publish` call. The view is context-aware
+   against `attendance.getToday` for that employee: Check In button only if
+   not checked in yet, Check Out button only if checked in and not out, no
+   buttons (just the completed status/times) once the day is done. An
+   unresolved employee gets a "contact HR" view instead of buttons. The
+   button handler (`interactions`) also calls `publishAppHome` again after
+   recording the event, so the tab reflects the write immediately rather than
+   waiting for the next manual reopen. Day-bucketing and displayed times both
+   go through [`convex/time.ts`](../convex/time.ts) (`Asia/Karachi`, not the
+   runtime's default UTC — see [decisions-log.md](./decisions-log.md)).
 
 ## TanStack Start + Cloudflare Workers deployment model
 

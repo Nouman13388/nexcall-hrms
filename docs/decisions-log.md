@@ -171,7 +171,68 @@ and prod are different keys), so an auto-loaded prod key overrides
 `.env.local` — only supplied inline, per command, for a deliberately
 intended prod action (`CONVEX_DEPLOY_KEY="..." npx convex <command>
 --prod`), never left sitting in a file or shell that also runs everyday
-`convex dev`. See [setup.md](./setup.md).
+`convex dev`. See [setup.md](./setup.md). **This recurred once already**
+after being fixed — the key was re-added to `.env` mid-session and a plain
+`npx convex dev --once` (run only to type-check an unrelated change) hijacked
+prod again. Treat "is `CONVEX_DEPLOY_KEY` present in `.env`/`.env.local` right
+now" as a check worth making before *any* `convex dev`, not a one-time fix.
+
+## Bug: `verifySlackSignature` imported its HMAC key with `["sign"]` but called `.verify()` on it — every Slack request failed, silently
+
+**What happened:** `convex/slack.ts`'s signature check imported the HMAC key
+via `crypto.subtle.importKey(..., ["sign"])`, then called
+`crypto.subtle.verify(...)` on that same key. WebCrypto enforces that a key's
+declared usages must include the operation being performed — a key imported
+for `"sign"` cannot be used with `verify()`. This threw
+`InvalidAccessError: CryptoKey does not have "verify" usage` on **every**
+inbound Slack request (the URL-verification handshake, `app_home_opened`,
+button interactions — all of it), before any routing or resolution logic
+ever ran. From the outside this looked like a Slack-side configuration
+problem: the Event Subscriptions Request URL failed to verify with a generic
+"HTTP error," and zero events ever showed up in `npx convex logs --prod`.
+
+**Root cause:** a copy-paste/typo-class bug in `importKey`'s `keyUsages`
+argument — should have matched the operation actually performed
+(`verify`), not the opposite one (`sign`). The function never signs
+anything, only verifies inbound signatures.
+
+**Fix / takeaway:** `convex/slack.ts`'s `verifySlackSignature` now imports
+the key with `["verify"]`. Takeaway for next time: when a Slack Request URL
+won't verify and the log tail shows *nothing at all* (not even an error) for
+url_verification, don't assume it's a Slack app-config problem first — check
+`npx convex logs --prod` for an uncaught exception in the handler itself.
+"Zero events ever arrive" and "the handler always throws before logging
+anything useful" produce an identical symptom from Slack's side; the log
+tail is what tells them apart.
+
+## Bug: attendance day-bucketing and Slack-displayed times used UTC instead of the org's timezone
+
+**What happened:** `attendance.ts` (`recordEvent`'s day bucketing, `getToday`),
+`dashboard.ts` (`todaySnapshot`'s "today"), and `slack.ts` (the Home tab's
+displayed check-in/check-out times) all computed dates/times via
+`new Date(...).toISOString()` or `.toLocaleTimeString()` with no `timeZone`
+option — which defaults to UTC in Convex's runtime. This team operates in
+Pakistan (`Asia/Karachi`, UTC+5): displayed times were off by a flat 5 hours
+(a 4:44/4:45 PM check-in/out actually happened at 9:44/9:45 PM local), and —
+more seriously — the calendar-day boundary used for "one `attendanceRecords`
+row per employee per day" was shifted: an event between roughly 12am-5am PKT
+would bucket into the *previous* day under UTC, silently splitting what
+should be one day's attendance across two `attendanceRecords` rows.
+
+**Root cause:** no explicit `timeZone` on any `Date` formatting call in the
+attendance/dashboard/Slack code paths — three independent call sites all
+defaulted to UTC the same way, so the bug was consistent (no cross-path data
+corruption) but uniformly wrong relative to the employee's actual local day.
+
+**Fix:** added [convex/time.ts](../convex/time.ts) — `ORG_TIMEZONE =
+'Asia/Karachi'`, plus `localDateString()` (day bucketing, via `en-CA`
+locale formatting which happens to output `YYYY-MM-DD`) and
+`localTimeString()` (Slack display) — and pointed all three call sites at
+it instead of ad-hoc `Date` formatting. Any future "what day/time is it"
+logic should import from here rather than reintroducing a fourth ad-hoc UTC
+call site. If the org ever operates across multiple timezones, this single
+constant is the one place that assumption would need to become
+per-employee instead of global.
 
 ## Bug: reinstalling the Slack app rotates `SLACK_BOT_TOKEN`, breaking every Slack API call until it's re-synced
 
