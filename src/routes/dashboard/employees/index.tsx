@@ -17,6 +17,14 @@ export const Route = createFileRoute('/dashboard/employees/')({
   component: EmployeesPage,
 })
 
+// Blank input -> undefined ("not configured"), not 0 — matches the schema's
+// requiredHoursPerDay being optional with no forced default (see schema.ts).
+function parseRequiredHours(raw: string): number | undefined {
+  if (raw.trim() === '') return undefined
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 interface SyncSummary {
   created: number
   matched: number
@@ -122,6 +130,7 @@ function EmployeesPage() {
               email: values.email,
               department: values.department || undefined,
               designation: values.designation || undefined,
+              requiredHoursPerDay: parseRequiredHours(values.requiredHoursPerDay),
             }).then(() => {})
           }
         />
@@ -137,6 +146,7 @@ function EmployeesPage() {
               email: editingEmployee.email,
               department: editingEmployee.department,
               designation: editingEmployee.designation,
+              requiredHoursPerDay: editingEmployee.requiredHoursPerDay?.toString() ?? '',
             }}
             onSubmit={(values) =>
               updateEmployee({
@@ -144,6 +154,7 @@ function EmployeesPage() {
                 fullName: values.fullName,
                 department: values.department || undefined,
                 designation: values.designation || undefined,
+                requiredHoursPerDay: parseRequiredHours(values.requiredHoursPerDay),
               }).then(() => setEditingId(null))
             }
             onCancel={() => setEditingId(null)}
@@ -221,6 +232,11 @@ function EmployeesPage() {
                 key: 'designation',
                 header: 'Designation',
                 render: (e) => e.designation ?? '—',
+              },
+              {
+                key: 'requiredHours',
+                header: 'Required hrs/day',
+                render: (e) => e.requiredHoursPerDay ?? '—',
               },
               {
                 key: 'status',

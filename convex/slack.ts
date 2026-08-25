@@ -142,12 +142,9 @@ async function buildResolvedHomeView(ctx: ActionCtx, employee: Doc<"employees">)
     },
   ];
 
-  const checkedIn = Boolean(today?.checkInAt);
-  const checkedOut = Boolean(today?.checkOutAt);
-
-  if (checkedOut) {
-    const checkIn = today?.checkInAt ? localTimeString(today.checkInAt) : "—";
-    const checkOut = today?.checkOutAt ? localTimeString(today.checkOutAt) : "—";
+  if (today.state === "CLOSED") {
+    const checkIn = localTimeString(today.checkInAt);
+    const checkOut = localTimeString(today.checkOutAt);
     blocks.push({
       type: "section",
       text: {
@@ -155,12 +152,12 @@ async function buildResolvedHomeView(ctx: ActionCtx, employee: Doc<"employees">)
         text: `:white_check_mark: *Today's status: Complete*\nChecked in ${checkIn} · Checked out ${checkOut}`,
       },
     });
-  } else if (checkedIn) {
+  } else if (today.state === "OPEN") {
     blocks.push({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `:large_green_circle: *Today's status: Checked in* at ${localTimeString(today!.checkInAt!)}`,
+        text: `:large_green_circle: *Today's status: Checked in* at ${localTimeString(today.checkInAt)}`,
       },
     });
     blocks.push({

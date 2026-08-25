@@ -24,6 +24,7 @@ employees: defineTable({
   department: v.optional(v.string()),
   designation: v.optional(v.string()),
   employmentStatus: v.union(v.literal("active"), v.literal("inactive")),
+  requiredHoursPerDay: v.optional(v.number()), // admin-set per person, no default
 })
   .index("by_email", ["email"])
   .index("by_slackUserId", ["slackUserId"]),
@@ -40,27 +41,65 @@ attendanceEvents: defineTable({         // raw, append-only, never mutated
   .index("by_employee_time", ["employeeId", "occurredAt"])
   .index("by_resolution", ["resolutionStatus"]),
 
-attendanceRecords: defineTable({        // derived, one row per employee per day
+// Session model, not date-bucketed: one row per continuous check-in/
+// check-out span. Replaces attendanceRecords (one row per employee per
+// calendar day), which was the root cause of the midnight-reset bug — a
+// check-in before midnight and a check-out after it landed in two
+// different date buckets. checkInAt/checkOutAt now define the row instead
+// of a `date` string, so there is no date comparison anywhere in
+// recordEvent. `date` and `status` are deliberately absent: both are
+// computed on read, never stored (see attendanceStatus.ts below).
+attendanceSessions: defineTable({
   employeeId: v.id("employees"),
-  date: v.string(),                     // ISO date
-  checkInAt: v.optional(v.number()),
-  checkOutAt: v.optional(v.number()),
-  workingHours: v.optional(v.number()),
-  status: v.union(v.literal("PRESENT"), v.literal("MISSING_CHECKOUT"), v.literal("COMPLETE")),
+  checkInAt: v.number(),                // required — no session before check-in
+  checkOutAt: v.optional(v.number()),   // absent = currently open
+  workingHours: v.optional(v.number()), // computed at checkout
   correctedByAdmin: v.boolean(),
 })
-  .index("by_employee_date", ["employeeId", "date"]),
+  .index("by_employee_checkInAt", ["employeeId", "checkInAt"]) // listing/history
+  .index("by_employee_open", ["employeeId", "checkOutAt"])     // find the open session, no date lookup
+  .index("by_checkInAt", ["checkInAt"]),                       // cross-employee range queries (todaySnapshot, unfiltered/date-ranged listRecords)
 ```
 
-Convex has no DB-level unique constraint, so two things are enforced in
-mutation code instead of the schema:
+`attendanceRecords` still exists in `schema.ts` (marked `LEGACY`) purely as
+the read source for the one-time migration in `convex/migrateSessions.ts` —
+nothing writes to it anymore. It's dropped from the schema once the
+migration is run and verified; see [decisions-log.md](./decisions-log.md).
+
+Convex has no DB-level unique constraint, so things like this are enforced
+in mutation code instead of the schema:
 
 - **Employee email uniqueness** — `employees.create` normalizes the email
   (trim + lowercase) and does a query-before-insert on `by_email` before
   inserting.
-- **One `attendanceRecords` row per employee per day** — `recordEventLogic`
-  in `convex/attendance.ts` looks up the existing row via `by_employee_date`
-  and patches it instead of inserting a duplicate.
+- **One open session per employee** — `recordEventLogic` in
+  `convex/attendance.ts` looks up the open session via `by_employee_open`
+  before every check-in/check-out; a check-in with one already open is
+  rejected (`ALREADY_CHECKED_IN`) rather than opening a second one.
+
+### Status is computed, not stored (`convex/attendanceStatus.ts`)
+
+`NOT_CHECKED_IN` / `PRESENT` / `MISSING_CHECKOUT` / `COMPLETE` /
+`INCOMPLETE` are derived on read by `computeDayStatus`, the one function
+every status-displaying query goes through — `dashboard.todaySnapshot`,
+`attendance.listRecords` (which both the Attendance list and the employee
+detail page render directly), never reimplemented per caller:
+
+- No sessions that day → `NOT_CHECKED_IN`
+- An open session → `PRESENT`, unless it's been open longer than
+  `MISSING_CHECKOUT_THRESHOLD_HOURS` (16h, a named constant, not a magic
+  number — a stated assumption, easy to change) → `MISSING_CHECKOUT`
+- All sessions closed, summed `workingHours` ≥ `employees.requiredHoursPerDay`
+  → `COMPLETE`; below it → `INCOMPLETE`
+- `requiredHoursPerDay` unset for that employee → treated as `COMPLETE`
+  (nothing to fall short of; the blank "Required hours/day" field on the
+  employee record is the actual thing to act on)
+
+`attendance.listRecords` groups the bounded set of sessions it reads into
+one row per employee per calendar day (Asia/Karachi, `time.ts`'s
+`localDateString`) before computing status per group — this is what makes
+the Attendance list's "Date / Check in / Check out / Hours / Status" table
+possible even though sessions aren't stored pre-grouped by day.
 
 ## Function surface
 
@@ -71,11 +110,12 @@ mutation code instead of the schema:
 | `employees.getBySlackId/getByEmail/updateSlackId` | internal query/mutation | Slack-only employee resolution helpers, not callable from the client |
 | `slackSync.syncFromSlack` | action | matches workspace members to employee records by email, backs the Admin "Sync from Slack" button |
 | `attendance.recordEvent` | `internalMutation` | shared write path for Slack + Admin sources, includes idempotency check |
-| `attendance.getToday` | `internalQuery` | today's `attendanceRecords` row for one employee, `by_employee_date` — backs the Slack Home tab's context-aware buttons |
-| `attendance.listRecords` | query | filter by employee/date range/status |
+| `attendance.getToday` | `internalQuery` | this employee's open session (`by_employee_open`) or today's most recent closed one — backs the Slack Home tab's context-aware buttons |
+| `attendance.listRecords` | query | sessions grouped into day rows (`attendanceStatus.ts`), filtered by employee/date range/computed status |
 | `attendance.correctRecord` | mutation | wraps the same recording logic with `source: "ADMIN"` |
 | `attendance.listUnmatched` / `.linkUnmatched` | query/mutation | unmatched-event review queue (backend only — no Admin UI yet, see [status.md](./status.md)) |
-| `dashboard.todaySnapshot` / `.recentActivity` | query | live Admin dashboard: today's present/missing-checkout/complete/not-checked-in counts + recent `attendanceEvents` feed |
+| `dashboard.todaySnapshot` / `.recentActivity` | query | live Admin dashboard: today's present/missing-checkout/complete/incomplete/not-checked-in counts + recent `attendanceEvents` feed |
+| `migrateSessions.dryRun/.run/.verify` | internal query/mutation/query | one-time `attendanceRecords` → `attendanceSessions` migration (dry run → confirm → run → verify), see the module's own comments |
 | `auth.seedAdmin` | `internalMutation` | one-time admin account creation (see [setup.md](./setup.md)) |
 
 `attendance.recordEvent` is `internalMutation`, not a public `mutation` — the

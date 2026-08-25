@@ -54,10 +54,19 @@ function DashboardHome() {
           <div className="stat-number">{snapshot?.complete ?? '—'}</div>
           <div className="stat-label">Complete</div>
         </Link>
-        {/* No matching attendanceRecords.status exists for "not checked
-            in" — it's the absence of a row, not a status value — so this
-            links to today's attendance unfiltered rather than a status
-            that can't be expressed as a filter. */}
+        <Link
+          to="/dashboard/attendance"
+          className="card stat-card"
+          search={{ status: 'INCOMPLETE', startDate: today ?? '', endDate: today ?? '' }}
+        >
+          <div className="stat-number">{snapshot?.incomplete ?? '—'}</div>
+          <div className="stat-label">Incomplete</div>
+        </Link>
+        {/* No matching computed status exists for "not checked in" — it's
+            the absence of a session that day, not a status value (see
+            convex/attendanceStatus.ts) — so this links to today's
+            attendance unfiltered rather than a status that can't be
+            expressed as a filter. */}
         <Link
           to="/dashboard/attendance"
           className="card stat-card"
@@ -108,7 +117,7 @@ function DashboardHome() {
                 // occurredAt (the actual check-in/out instant), not
                 // _creationTime (row insert time) — they usually match, but
                 // an ADMIN correction can backdate occurredAt, and this is
-                // also the same instant attendanceRecords.date buckets by,
+                // also the same instant attendanceSessions is day-bucketed by,
                 // so the label here stays consistent with which day's
                 // snapshot the event actually counts toward.
                 render: (e) => `${dayLabel(e.occurredAt)}, ${relativeTime(e.occurredAt)}`,

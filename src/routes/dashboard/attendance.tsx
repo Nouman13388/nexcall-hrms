@@ -8,12 +8,16 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { formatClockTime } from '../../lib/format'
 import type { Id } from '../../../convex/_generated/dataModel'
 
-type StatusFilter = '' | 'PRESENT' | 'MISSING_CHECKOUT' | 'COMPLETE'
+// NOT_CHECKED_IN deliberately excluded — same reasoning as before: it's the
+// absence of a session that day, not a value a row can carry, so it can't
+// be expressed as a filter over listRecords' rows.
+type StatusFilter = '' | 'PRESENT' | 'MISSING_CHECKOUT' | 'COMPLETE' | 'INCOMPLETE'
 
 const STATUS_VALUES: StatusFilter[] = [
   'PRESENT',
   'MISSING_CHECKOUT',
   'COMPLETE',
+  'INCOMPLETE',
 ]
 
 interface AttendanceSearch {
@@ -128,6 +132,7 @@ function AttendancePage() {
             <option value="PRESENT">Present</option>
             <option value="MISSING_CHECKOUT">Missing checkout</option>
             <option value="COMPLETE">Complete</option>
+            <option value="INCOMPLETE">Incomplete</option>
           </select>
         </label>
       </div>

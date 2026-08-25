@@ -9,10 +9,13 @@
  */
 
 import type * as attendance from "../attendance.js";
+import type * as attendanceStatus from "../attendanceStatus.js";
 import type * as auth from "../auth.js";
+import type * as constants from "../constants.js";
 import type * as dashboard from "../dashboard.js";
 import type * as employees from "../employees.js";
 import type * as http from "../http.js";
+import type * as migrateSessions from "../migrateSessions.js";
 import type * as slack from "../slack.js";
 import type * as slackSync from "../slackSync.js";
 import type * as time from "../time.js";
@@ -25,10 +28,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
+  attendanceStatus: typeof attendanceStatus;
   auth: typeof auth;
+  constants: typeof constants;
   dashboard: typeof dashboard;
   employees: typeof employees;
   http: typeof http;
+  migrateSessions: typeof migrateSessions;
   slack: typeof slack;
   slackSync: typeof slackSync;
   time: typeof time;

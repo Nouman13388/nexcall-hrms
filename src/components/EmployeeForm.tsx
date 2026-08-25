@@ -9,6 +9,10 @@ export interface EmployeeFormValues {
   email: string
   department: string
   designation: string
+  // String while in the form (raw input value), parsed to number | undefined
+  // by the caller before hitting the mutation — kept as a string here so an
+  // empty field round-trips as "not configured" instead of coercing to 0.
+  requiredHoursPerDay: string
 }
 
 export function EmployeeForm({
@@ -26,6 +30,9 @@ export function EmployeeForm({
   const [email, setEmail] = useState(initial?.email ?? '')
   const [department, setDepartment] = useState(initial?.department ?? '')
   const [designation, setDesignation] = useState(initial?.designation ?? '')
+  const [requiredHoursPerDay, setRequiredHoursPerDay] = useState(
+    initial?.requiredHoursPerDay ?? '',
+  )
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -34,12 +41,13 @@ export function EmployeeForm({
     setError('')
     setIsSubmitting(true)
     try {
-      await onSubmit({ fullName, email, department, designation })
+      await onSubmit({ fullName, email, department, designation, requiredHoursPerDay })
       if (mode === 'create') {
         setFullName('')
         setEmail('')
         setDepartment('')
         setDesignation('')
+        setRequiredHoursPerDay('')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -87,6 +95,17 @@ export function EmployeeForm({
           <input
             value={designation}
             onChange={(e) => setDesignation(e.target.value)}
+          />
+        </label>
+        <label>
+          Required hours/day
+          <input
+            type="number"
+            min="0"
+            step="0.5"
+            placeholder="Not set"
+            value={requiredHoursPerDay}
+            onChange={(e) => setRequiredHoursPerDay(e.target.value)}
           />
         </label>
       </div>

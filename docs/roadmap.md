@@ -10,20 +10,47 @@ edge cases. A one-time cleanup is needed for the existing self-record. Slack
 sync (`syncFromSlack`) needs the same check going forward. All employee-facing
 queries and dashboard counts filter `isStaff: true` by default.
 
-## Priority 1 — Shifts + Holidays (the real next phase)
+## Priority 1 — Session model (shipped) + Holidays (still open)
 
-- `shifts`: name, startTime, endTime, gracePeriodMinutes
-- Employee-shift assignment (single shift per employee to start — decide
-  inline field vs. join table at build time)
-- `holidays`: date, name, optional locationScope
-- `recordEvent` gains derived logic against the assigned shift: lateBy,
-  earlyDepartureBy, breakMinutes — `attendanceRecords` gains these fields
-- Dashboard "not checked in" excludes holidays
-- Admin UI: manage shifts, assign employees, manage holiday calendar
+The shifts/gracePeriod/lateBy design that used to live here is superseded.
+`attendanceRecords` (one row per employee per calendar day) was the root
+cause of the midnight-reset bug: a check-in before midnight and a check-out
+after it landed in two different date-bucketed rows, corrupting both. It's
+been replaced with `attendanceSessions` — one row per continuous
+check-in/check-out span, keyed by `checkInAt`/`checkOutAt` instead of a
+`date` string. Checking in before midnight and out after it is now a single
+correct row; there is no date comparison anywhere in `recordEvent`. See
+[architecture.md](./architecture.md) for the schema and
+[decisions-log.md](./decisions-log.md) for the bug this fixed.
 
-This is what "breaks, early check-in/out constraints, automated tracking"
-actually is — it is additive to the existing
-`attendanceEvents`/`attendanceRecords` split, not a new data model.
+Two consequences of the session model that matter for anything built on top
+of it going forward:
+
+- **Status is computed on read, never stored.** `date` and `status` don't
+  exist on `attendanceSessions` — `convex/attendanceStatus.ts`'s
+  `computeDayStatus` derives `NOT_CHECKED_IN` / `PRESENT` /
+  `MISSING_CHECKOUT` / `COMPLETE` / `INCOMPLETE` per employee per calendar
+  day from the raw sessions plus `employees.requiredHoursPerDay`, every time
+  it's asked. One shared function, three callers (`dashboard.todaySnapshot`,
+  `attendance.listRecords`, and the employee detail page via the same
+  `listRecords` query) — never reimplemented.
+- **`requiredHoursPerDay` is per-employee and admin-set, no default.** "Duration
+  determined per client" — there's no org-wide shift length to derive
+  lateness or completeness from. This already replaces what shifts'
+  `startTime`/`endTime` would have graded attendance against.
+
+**What's still genuinely open from the old shifts/holidays idea, now
+scoped down:**
+
+- `holidays`: date, name, optional locationScope — so the dashboard's
+  "not checked in" count can exclude holidays. This is the one piece of
+  the original Priority 1 that the session model doesn't already cover.
+- `lateBy` / `earlyDepartureBy` / `breakMinutes` as graded, shift-relative
+  fields are **not** planned — there's no shift start/end time in this
+  model to grade lateness against, only a daily hours target. If per-time
+  lateness tracking becomes a real requirement, it needs its own design
+  (e.g. an optional `scheduledStartTime` on `employees` alongside
+  `requiredHoursPerDay`), not a resurrection of the `shifts` table above.
 
 ## Priority 2 — Monthly report view (print-first, not download-first)
 

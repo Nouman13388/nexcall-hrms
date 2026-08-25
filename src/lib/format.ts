@@ -19,7 +19,7 @@ const localDateString = (ms: number) =>
 
 // "Today"/"Yesterday"/"Aug 24" for an event's date, independent of
 // relativeTime's "3h ago" — a plain hour count alone can't tell you whether
-// an event landed in today's attendanceRecords bucket or yesterday's,
+// an event landed in today's attendance or yesterday's,
 // which is exactly the distinction the dashboard's daily snapshot cares
 // about (see decisions-log.md's Asia/Karachi day-bucketing entry).
 export function dayLabel(ms: number) {

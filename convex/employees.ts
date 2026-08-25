@@ -18,6 +18,7 @@ export const create = mutation({
     email: v.string(),
     department: v.optional(v.string()),
     designation: v.optional(v.string()),
+    requiredHoursPerDay: v.optional(v.number()),
   },
   returns: v.id('employees'),
   handler: async (ctx, args) => {
@@ -54,6 +55,7 @@ export const update = mutation({
     fullName: v.optional(v.string()),
     department: v.optional(v.string()),
     designation: v.optional(v.string()),
+    requiredHoursPerDay: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, { id, ...updates }) => {
